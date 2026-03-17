@@ -10,7 +10,7 @@ PrivilegesRequired=admin
 SetupIconFile=app_icon.ico
 
 [Files]
-Source: "AIM-X\AIM-X\bin\Release\*\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "AIM-X\AIM-X\Aim X\bin\Release\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
 Name: "{group}\AIM X"; Filename: "{app}\Aim X.exe"
