@@ -86,6 +86,7 @@ namespace Aim_X
                 this.Hide();
                 Program.trayIcon.ShowBalloonTip(2000, "Aim X v21", "Running in Background!", ToolTipIcon.Info);
             }
+            AimXEngine.RevertAllSettings(); // Automatically restores their personal settings
             base.OnFormClosing(e);
         }
 
