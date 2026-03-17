@@ -29,7 +29,7 @@
 
 | Loading Screen | Main Interface |
 | :--- | :--- |
-| ![Loading Window](https://github.com/MrPcGamerYT/AIM-X/blob/main/Screenshots/loading.png) | ![Main UI]([https://github.com/MrPcGamerYT/AIM-X/blob/main/Screenshots/main.png) |
+| ![Loading Window](https://github.com/MrPcGamerYT/AIM-X/blob/main/Screenshots/loading.png) | ![Main UI](https://github.com/MrPcGamerYT/AIM-X/blob/main/Screenshots/main.png) |
 
 > *Tip: To add your own images, upload screenshots to your repo and replace the links above.*
 
