@@ -181,6 +181,7 @@ namespace Aim_X
         }
 
         // --- FIXED: BLOCK FULLSCREEN & ENABLE DRAGGING ---
+        // --- FIXED: BLOCK FULLSCREEN & ENABLE DRAGGING (v21 STABLE) ---
         protected override void WndProc(ref Message m)
         {
             const int WM_NCHITTEST = 0x84;
@@ -198,12 +199,16 @@ namespace Aim_X
 
             base.WndProc(ref m);
 
-            // 3. Enable Smooth Dragging
+            // 3. Enable Smooth Dragging with High-DPI Fix
             if (m.Msg == WM_NCHITTEST && (int)m.Result == HTCLIENT)
             {
-                Point screenPoint = new Point(m.LParam.ToInt32());  
-                Point clientPoint = this.PointToClient(screenPoint);
+                // Extract X and Y coordinates from LParam safely
+                short x = (short)(m.LParam.ToInt32() & 0xFFFF);
+                short y = (short)((m.LParam.ToInt32() >> 16) & 0xFFFF);
+                
+                Point clientPoint = this.PointToClient(new Point(x, y));
 
+                // If the mouse is in the top 50 pixels, treat it as the Title Bar (Caption)
                 if (clientPoint.Y <= 50)
                 {
                     m.Result = (IntPtr)HTCAPTION;
