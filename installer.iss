@@ -10,6 +10,10 @@ PrivilegesRequired=admin
 SetupIconFile=app_icon.ico
 
 [Files]
+; 🔥 Dynamic EXE (from GitHub Actions)
+Source: "{#GetEnv('EXE_PATH')}"; DestDir: "{app}"; Flags: ignoreversion
+
+; 🔥 Include all other files safely
 Source: "AIM-X\AIM-X\Aim X\bin\Release\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
