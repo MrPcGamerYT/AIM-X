@@ -1,0 +1,44 @@
+name: Update Version
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        required: true
+
+jobs:
+  update:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+
+    steps:
+    - uses: actions/checkout@v4
+
+    # ✅ update.json
+    - name: Update JSON
+      shell: pwsh
+      run: |
+        $v = "${{ github.event.inputs.version }}"
+
+        @{
+          version = $v
+          url = "https://github.com/MrPcGamerYT/AIM-X/releases/latest/download/AIM-X-Setup.exe"
+        } | ConvertTo-Json -Compress | Set-Content update.json
+
+    # ✅ installer version
+    - name: Update installer
+      shell: pwsh
+      run: |
+        (Get-Content installer.iss) `
+        -replace 'AppVersion=.*', "AppVersion=${{ github.event.inputs.version }}" |
+        Set-Content installer.iss
+
+    # ✅ commit
+    - name: Commit
+      run: |
+        git config user.name github-actions
+        git config user.email github-actions@github.com
+        git add .
+        git commit -m "Update version ${{ github.event.inputs.version }}" || echo "No changes"
+        git push
