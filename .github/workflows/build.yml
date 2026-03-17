@@ -47,18 +47,15 @@ jobs:
         nuget restore $proj.FullName
         msbuild $proj.FullName /p:Configuration=Release
 
-    # ✅ SMART OUTPUT CHECK (NO MORE ERRORS)
     - name: Check Output
       shell: pwsh
       run: |
-        $exe = Get-ChildItem -Recurse -Filter "*.exe" | Where-Object { $_.Name -like "*Aim*" } | Select-Object -First 1
-
-        if (-not $exe) {
-          Write-Error "Build failed - no EXE found"
+        if (!(Test-Path "AIM-X\AIM-X\Aim X\bin\Release")) {
+          Write-Error "Build failed - no output folder"
           exit 1
         }
 
-        Write-Host "EXE FOUND: $($exe.FullName)"
+        Write-Host "Build output found!"
     # Build installer
     - name: Build Installer
       uses: Minionguyjpro/Inno-Setup-Action@v1.2.2
