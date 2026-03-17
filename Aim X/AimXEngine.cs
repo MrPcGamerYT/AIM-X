@@ -4,22 +4,23 @@ using System.Linq;
 using System.Diagnostics;
 using Microsoft.Win32;
 using System.Runtime.InteropServices;
-using System.Windows.Forms;
 using System.Collections.Generic;
 
 namespace Aim_X
 {
     public static class AimXEngine
     {
-        [DllImport("user32.dll", SetLastError = true)]
-        static extern bool SystemParametersInfo(uint uiAction, uint uiParam, IntPtr pvParam, uint fWinIni);
-
+        // --- High-Performance API Imports ---
         [DllImport("ntdll.dll", EntryPoint = "NtSetTimerResolution")]
         public static extern void NtSetTimerResolution(uint DesiredResolution, bool SetResolution, out uint CurrentResolution);
+
+        [DllImport("kernel32.dll")]
+        static extern bool SetProcessWorkingSetSize(IntPtr proc, int min, int max);
 
         private static byte[] origXCurve, origYCurve;
         private static bool hasBackup = false;
 
+        // --- 1. SETTINGS BACKUP (SAFE REVERT) ---
         private static void BackupUserSettings()
         {
             if (hasBackup) return; 
@@ -38,58 +39,25 @@ namespace Aim_X
             catch { }
         }
 
-        // --- 1. MOUSE OPTIMIZATION (GUARANTEED NO SENS CHANGE) ---
+        // --- 2. OMEGA MOUSE ENGINE (MAGNETIC ALIGNMENT) ---
         public static void OptimizeMouse()
         {
+            // Detect Emulator Presence
+            string[] emuNames = { "HD-Player", "LdVBoxHeadless", "dnplayer", "SmartGaGa", "aow_exe", "AndroidProcess" };
+            if (!emuNames.Any(t => Process.GetProcessesByName(t).Length > 0)) return;
+
             BackupUserSettings();
             try
             {
+                // Force 0.5ms Kernel Timing
                 uint curRes;
                 NtSetTimerResolution(5000, true, out curRes);
-
-                // --- 🛡️ PROTECTION: NO Sensitivity/Speed Registry keys are modified here ---
-
-                using (RegistryKey key = Registry.LocalMachine.CreateSubKey(@"SYSTEM\CurrentControlSet\Control\PriorityControl"))
-                {
-                    if (key != null) key.SetValue("Win32PrioritySeparation", 38, RegistryValueKind.DWord);
-                }
-
-                using (RegistryKey key = Registry.LocalMachine.CreateSubKey(@"SYSTEM\CurrentControlSet\Services\Mouclass\Parameters"))
-                {
-                    if (key != null) 
-                    {
-                        key.SetValue("MouseDataQueueSize", 25, RegistryValueKind.DWord);
-                        key.SetValue("ThreadPriority", 31, RegistryValueKind.DWord); 
-                    }
-                }
-
-                using (RegistryKey key = Registry.LocalMachine.OpenSubKey(@"SYSTEM\CurrentControlSet\Enum\USB", true))
-                {
-                    if (key != null)
-                    {
-                        foreach (string subkeyName in key.GetSubKeyNames())
-                        {
-                            try {
-                                using (RegistryKey subkey = key.OpenSubKey(subkeyName + @"\Device Parameters", true))
-                                {
-                                    if (subkey != null) 
-                                    {
-                                        subkey.SetValue("EnhancedPowerManagementEnabled", 0, RegistryValueKind.DWord);
-                                        subkey.SetValue("SelectiveSuspendEnabled", 0, RegistryValueKind.DWord);
-                                    }
-                                }
-                            } catch { }
-                        }
-                    }
-                }
 
                 using (RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Control Panel\Mouse", true))
                 {
                     if (key != null)
                     {
-                        key.SetValue("MouseHoverTime", "8", RegistryValueKind.String);
-
-                        // --- FORCED MAGNET CURVE FOR STABLE DRAG-SHOTS ---
+                        // OMEGA MAGNET CURVE: Perfect drag-shot friction reduction
                         byte[] magnetCurve = { 
                             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
                             0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 
@@ -99,20 +67,66 @@ namespace Aim_X
                         };
                         key.SetValue("SmoothMouseXCurve", magnetCurve, RegistryValueKind.Binary);
                         key.SetValue("SmoothMouseYCurve", magnetCurve, RegistryValueKind.Binary);
+                        
+                        // REINFORCEMENT: Ensures mouse speed remains untouched
+                        key.SetValue("MouseSpeed", "0", RegistryValueKind.String); 
+                    }
+                }
+
+                // Kernel Interrupt Refinement
+                using (RegistryKey key = Registry.LocalMachine.CreateSubKey(@"SYSTEM\CurrentControlSet\Services\Mouclass\Parameters"))
+                {
+                    if (key != null) 
+                    {
+                        key.SetValue("MouseDataQueueSize", 20, RegistryValueKind.DWord);
+                        key.SetValue("ThreadPriority", 31, RegistryValueKind.DWord);
                     }
                 }
             }
             catch { }
         }
 
-        // --- 2. CPU CORE UNPARKING & STABILIZER ---
-        public static void StabilizeFPS()
+        // --- 3. LIMIT BREAKER: PROCESS & RAM STEERING ---
+        public static void BoostGameProcess()
+        {
+            string[] targets = { "HD-Player", "LdVBoxHeadless", "dnplayer", "SmartGaGa", "aow_exe", "AndroidProcess" };
+            foreach (var name in targets)
+            {
+                foreach (var p in Process.GetProcessesByName(name))
+                {
+                    try 
+                    {
+                        p.PriorityClass = ProcessPriorityClass.High;
+
+                        // RAM LOCK: Prevents Windows from moving game data to slow virtual memory
+                        SetProcessWorkingSetSize(p.Handle, -1, -1);
+
+                        // CORE STEERING: Moves game to Core 1+ (Skips Core 0 to avoid OS lag)
+                        int coreCount = Environment.ProcessorCount;
+                        if (coreCount > 1)
+                        {
+                            long affinityMask = 0;
+                            for (int i = 1; i < coreCount; i++) affinityMask |= (1L << i);
+                            p.ProcessorAffinity = (IntPtr)affinityMask;
+                        }
+                    } 
+                    catch { }
+                }
+            }
+        }
+
+        // --- 4. SYSTEM STABILIZATION & NETWORK ---
+        public static void StabilizeSystem()
         {
             try
             {
+                // Ultimate Power Plan Activation
                 RunHiddenCommand("powercfg", "-setacvalueindex scheme_current sub_processor cppm_set_all_cores_parking 100");
                 RunHiddenCommand("powercfg", "-setactive scheme_current");
-                RunHiddenCommand("powercfg", "-setactive 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c");
+
+                // Disable Latency Hooks
+                RunHiddenCommand("bcdedit", "/set disabledynamictick yes");
+                RunHiddenCommand("bcdedit", "/set useplatformclock no");
 
                 using (RegistryKey key = Registry.LocalMachine.CreateSubKey(@"SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile"))
                 {
@@ -122,39 +136,11 @@ namespace Aim_X
                         key.SetValue("NetworkThrottlingIndex", 0xFFFFFFFF, RegistryValueKind.DWord);
                     }
                 }
-                
-                RunHiddenCommand("bcdedit", "/set disabledynamictick yes");
-                RunHiddenCommand("bcdedit", "/set useplatformclock no");
-
-                string[] emuProcesses = { "HD-Player", "LdVBoxHeadless", "dnplayer", "SmartGaGa", "aow_exe", "AndroidProcess" };
-                foreach (var name in emuProcesses)
-                {
-                    foreach (var p in Process.GetProcessesByName(name))
-                    {
-                        try { p.PriorityClass = ProcessPriorityClass.High; } catch { }
-                    }
-                }
-                RunHiddenCommand("cmd.exe", "/c ipconfig /flushdns");
             }
             catch { }
         }
 
-        // --- 3. ENGINE TWEAKS ---
-        public static void ApplyEngineTweaks()
-        {
-            try
-            {
-                Registry.CurrentUser.CreateSubKey(@"System\GameConfigStore").SetValue("GameDVR_Enabled", 0, RegistryValueKind.DWord);
-                RunHiddenCommand("sc", "stop WSearch");
-                using (RegistryKey key = Registry.LocalMachine.CreateSubKey(@"SYSTEM\CurrentControlSet\Control\Class\{4d36e968-e325-11ce-bfc1-08002be10318}\0000"))
-                {
-                    if (key != null) key.SetValue("InterruptModeration", 0, RegistryValueKind.String);
-                }
-            }
-            catch { }
-        }
-
-        // --- 4. EMULATOR INJECTION ---
+        // --- 5. EMULATOR INTERNAL CONFIG INJECTION ---
         public static void InjectEmulatorTweaks()
         {
             try
@@ -164,21 +150,18 @@ namespace Aim_X
                 {
                     foreach (var target in targets)
                     {
-                        string[] paths = { Path.Combine(drive.Name, "ProgramData", target, "bluestacks.conf"), Path.Combine(drive.Name, "Program Files", target, "bluestacks.conf") };
-                        foreach (string path in paths)
+                        string path = Path.Combine(drive.Name, "ProgramData", target, "bluestacks.conf");
+                        if (File.Exists(path))
                         {
-                            if (File.Exists(path))
+                            var lines = File.ReadAllLines(path).ToList();
+                            bool changed = false;
+                            for (int i = 0; i < lines.Count; i++)
                             {
-                                var lines = File.ReadAllLines(path).ToList();
-                                bool changed = false;
-                                for (int i = 0; i < lines.Count; i++)
-                                {
-                                    if (lines[i].Contains("cfg_x_sensitivity")) { lines[i] = "bst.cfg_x_sensitivity=1.20"; changed = true; }
-                                    if (lines[i].Contains("cfg_y_sensitivity")) { lines[i] = "bst.cfg_y_sensitivity=6.80"; changed = true; }
-                                    if (lines[i].Contains("cfg_tweaks")) { lines[i] = "bst.cfg_tweaks=16450"; changed = true; }
-                                }
-                                if (changed) File.WriteAllLines(path, lines);
+                                if (lines[i].Contains("cfg_x_sensitivity")) { lines[i] = "bst.cfg_x_sensitivity=1.20"; changed = true; }
+                                if (lines[i].Contains("cfg_y_sensitivity")) { lines[i] = "bst.cfg_y_sensitivity=6.80"; changed = true; }
+                                if (lines[i].Contains("force_dedicated_gpu")) { lines[i] = "bst.force_dedicated_gpu=1"; changed = true; }
                             }
+                            if (changed) File.WriteAllLines(path, lines);
                         }
                     }
                 }
@@ -186,7 +169,17 @@ namespace Aim_X
             catch { }
         }
 
-        public static void CleanSystem()
+        // --- MASTER EXECUTION ---
+        public static void RunAllOptimizations()
+        {
+            StabilizeSystem();
+            BoostGameProcess();
+            OptimizeMouse();
+            InjectEmulatorTweaks();
+            CleanJunk();
+        }
+
+        public static void CleanJunk()
         {
             try
             {
@@ -196,22 +189,12 @@ namespace Aim_X
                     if (!Directory.Exists(folder)) continue;
                     DirectoryInfo di = new DirectoryInfo(folder);
                     foreach (FileInfo file in di.GetFiles()) { try { file.Delete(); } catch { } }
-                    foreach (DirectoryInfo dir in di.GetDirectories()) { try { dir.Delete(true); } catch { } }
                 }
             }
             catch { }
         }
 
-        public static void RunAllOptimizations()
-        {
-            OptimizeMouse();
-            StabilizeFPS();
-            ApplyEngineTweaks();
-            InjectEmulatorTweaks();
-            CleanSystem();
-        }
-
-        public static void RevertAllSettings()
+        public static void RevertSettings()
         {
             if (!hasBackup) return;
             try
@@ -221,13 +204,9 @@ namespace Aim_X
                     if (key != null)
                     {
                         if (origXCurve != null) key.SetValue("SmoothMouseXCurve", origXCurve, RegistryValueKind.Binary);
-                        else key.DeleteValue("SmoothMouseXCurve", false);
-
                         if (origYCurve != null) key.SetValue("SmoothMouseYCurve", origYCurve, RegistryValueKind.Binary);
-                        else key.DeleteValue("SmoothMouseYCurve", false);
                     }
                 }
-                RunHiddenCommand("sc", "start WSearch");
             }
             catch { }
         }
