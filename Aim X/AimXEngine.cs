@@ -10,7 +10,7 @@ namespace Aim_X
 {
     public static class AimXEngine
     {
-        // --- High-Performance API Imports ---
+        // --- Kernel-Level Imports ---
         [DllImport("ntdll.dll", EntryPoint = "NtSetTimerResolution")]
         public static extern void NtSetTimerResolution(uint DesiredResolution, bool SetResolution, out uint CurrentResolution);
 
@@ -20,7 +20,7 @@ namespace Aim_X
         private static byte[] origXCurve, origYCurve;
         private static bool hasBackup = false;
 
-        // --- 1. SETTINGS BACKUP (SAFE REVERT) ---
+        // --- 1. BACKUP SYSTEM ---
         private static void BackupUserSettings()
         {
             if (hasBackup) return; 
@@ -39,25 +39,22 @@ namespace Aim_X
             catch { }
         }
 
-        // --- 2. OMEGA MOUSE ENGINE (MAGNETIC ALIGNMENT) ---
+        // --- 2. MOUSE OPTIMIZATION (THE MAGNET) ---
         public static void OptimizeMouse()
         {
-            // Detect Emulator Presence
             string[] emuNames = { "HD-Player", "LdVBoxHeadless", "dnplayer", "SmartGaGa", "aow_exe", "AndroidProcess" };
             if (!emuNames.Any(t => Process.GetProcessesByName(t).Length > 0)) return;
 
             BackupUserSettings();
             try
             {
-                // Force 0.5ms Kernel Timing
                 uint curRes;
-                NtSetTimerResolution(5000, true, out curRes);
+                NtSetTimerResolution(5000, true, out curRes); // 0.5ms Delay
 
                 using (RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Control Panel\Mouse", true))
                 {
                     if (key != null)
                     {
-                        // OMEGA MAGNET CURVE: Perfect drag-shot friction reduction
                         byte[] magnetCurve = { 
                             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
                             0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 
@@ -67,13 +64,10 @@ namespace Aim_X
                         };
                         key.SetValue("SmoothMouseXCurve", magnetCurve, RegistryValueKind.Binary);
                         key.SetValue("SmoothMouseYCurve", magnetCurve, RegistryValueKind.Binary);
-                        
-                        // REINFORCEMENT: Ensures mouse speed remains untouched
-                        key.SetValue("MouseSpeed", "0", RegistryValueKind.String); 
+                        key.SetValue("MouseSpeed", "0", RegistryValueKind.String);
                     }
                 }
 
-                // Kernel Interrupt Refinement
                 using (RegistryKey key = Registry.LocalMachine.CreateSubKey(@"SYSTEM\CurrentControlSet\Services\Mouclass\Parameters"))
                 {
                     if (key != null) 
@@ -86,48 +80,20 @@ namespace Aim_X
             catch { }
         }
 
-        // --- 3. LIMIT BREAKER: PROCESS & RAM STEERING ---
-        public static void BoostGameProcess()
-        {
-            string[] targets = { "HD-Player", "LdVBoxHeadless", "dnplayer", "SmartGaGa", "aow_exe", "AndroidProcess" };
-            foreach (var name in targets)
-            {
-                foreach (var p in Process.GetProcessesByName(name))
-                {
-                    try 
-                    {
-                        p.PriorityClass = ProcessPriorityClass.High;
-
-                        // RAM LOCK: Prevents Windows from moving game data to slow virtual memory
-                        SetProcessWorkingSetSize(p.Handle, -1, -1);
-
-                        // CORE STEERING: Moves game to Core 1+ (Skips Core 0 to avoid OS lag)
-                        int coreCount = Environment.ProcessorCount;
-                        if (coreCount > 1)
-                        {
-                            long affinityMask = 0;
-                            for (int i = 1; i < coreCount; i++) affinityMask |= (1L << i);
-                            p.ProcessorAffinity = (IntPtr)affinityMask;
-                        }
-                    } 
-                    catch { }
-                }
-            }
-        }
-
-        // --- 4. SYSTEM STABILIZATION & NETWORK ---
-        public static void StabilizeSystem()
+        // --- 3. STABILIZE FPS (Now Includes RAM Lock & Affinity) ---
+        public static void StabilizeFPS()
         {
             try
             {
-                // Ultimate Power Plan Activation
+                // Core Parking & Power
                 RunHiddenCommand("powercfg", "-setacvalueindex scheme_current sub_processor cppm_set_all_cores_parking 100");
                 RunHiddenCommand("powercfg", "-setactive scheme_current");
 
-                // Disable Latency Hooks
+                // BCD Latency Fix
                 RunHiddenCommand("bcdedit", "/set disabledynamictick yes");
                 RunHiddenCommand("bcdedit", "/set useplatformclock no");
 
+                // Multimedia Registry Tweaks
                 using (RegistryKey key = Registry.LocalMachine.CreateSubKey(@"SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile"))
                 {
                     if (key != null)
@@ -136,11 +102,71 @@ namespace Aim_X
                         key.SetValue("NetworkThrottlingIndex", 0xFFFFFFFF, RegistryValueKind.DWord);
                     }
                 }
+
+                // Process Steering: Core Affinity & RAM Lock
+                string[] targets = { "HD-Player", "LdVBoxHeadless", "dnplayer", "SmartGaGa", "aow_exe", "AndroidProcess" };
+                foreach (var name in targets)
+                {
+                    foreach (var p in Process.GetProcessesByName(name))
+                    {
+                        try {
+                            p.PriorityClass = ProcessPriorityClass.High;
+                            SetProcessWorkingSetSize(p.Handle, -1, -1); // RAM LOCK
+
+                            int coreCount = Environment.ProcessorCount;
+                            if (coreCount > 1)
+                            {
+                                long affinityMask = 0;
+                                for (int i = 1; i < coreCount; i++) affinityMask |= (1L << i);
+                                p.ProcessorAffinity = (IntPtr)affinityMask; // Skip Core 0
+                            }
+                        } catch { }
+                    }
+                }
             }
             catch { }
         }
 
-        // --- 5. EMULATOR INTERNAL CONFIG INJECTION ---
+        // --- 4. APPLY ENGINE TWEAKS (GPU & Interrupts) ---
+        public static void ApplyEngineTweaks()
+        {
+            try
+            {
+                // GPU Scheduling
+                using (RegistryKey key = Registry.LocalMachine.CreateSubKey(@"SYSTEM\CurrentControlSet\Control\GraphicsDrivers"))
+                {
+                    if (key != null) key.SetValue("HwSchMode", 2, RegistryValueKind.DWord);
+                }
+
+                Registry.CurrentUser.CreateSubKey(@"System\GameConfigStore").SetValue("GameDVR_Enabled", 0, RegistryValueKind.DWord);
+                RunHiddenCommand("sc", "stop WSearch");
+                
+                using (RegistryKey key = Registry.LocalMachine.CreateSubKey(@"SYSTEM\CurrentControlSet\Control\Class\{4d36e968-e325-11ce-bfc1-08002be10318}\0000"))
+                {
+                    if (key != null) key.SetValue("InterruptModeration", 0, RegistryValueKind.String);
+                }
+            }
+            catch { }
+        }
+
+        // --- 5. CLEAN SYSTEM ---
+        public static void CleanSystem()
+        {
+            try
+            {
+                string[] folders = { Path.GetTempPath(), "C:\\Windows\\Temp", "C:\\Windows\\Prefetch" };
+                foreach (var folder in folders)
+                {
+                    if (!Directory.Exists(folder)) continue;
+                    DirectoryInfo di = new DirectoryInfo(folder);
+                    foreach (FileInfo file in di.GetFiles()) { try { file.Delete(); } catch { } }
+                }
+                RunHiddenCommand("cmd.exe", "/c ipconfig /flushdns");
+            }
+            catch { }
+        }
+
+        // --- 6. EMULATOR INJECTION ---
         public static void InjectEmulatorTweaks()
         {
             try
@@ -169,32 +195,18 @@ namespace Aim_X
             catch { }
         }
 
-        // --- MASTER EXECUTION ---
+        // --- MASTER TRIGGER ---
         public static void RunAllOptimizations()
         {
-            StabilizeSystem();
-            BoostGameProcess();
+            StabilizeFPS();
+            ApplyEngineTweaks();
             OptimizeMouse();
             InjectEmulatorTweaks();
-            CleanJunk();
+            CleanSystem();
         }
 
-        public static void CleanJunk()
-        {
-            try
-            {
-                string[] folders = { Path.GetTempPath(), "C:\\Windows\\Temp", "C:\\Windows\\Prefetch" };
-                foreach (var folder in folders)
-                {
-                    if (!Directory.Exists(folder)) continue;
-                    DirectoryInfo di = new DirectoryInfo(folder);
-                    foreach (FileInfo file in di.GetFiles()) { try { file.Delete(); } catch { } }
-                }
-            }
-            catch { }
-        }
-
-        public static void RevertSettings()
+        // --- REVERT ALL SETTINGS ---
+        public static void RevertAllSettings()
         {
             if (!hasBackup) return;
             try
@@ -207,6 +219,7 @@ namespace Aim_X
                         if (origYCurve != null) key.SetValue("SmoothMouseYCurve", origYCurve, RegistryValueKind.Binary);
                     }
                 }
+                RunHiddenCommand("sc", "start WSearch");
             }
             catch { }
         }
