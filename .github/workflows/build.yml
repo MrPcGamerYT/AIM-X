@@ -1,0 +1,54 @@
+name: Build and Release
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+
+    steps:
+    - uses: actions/checkout@v4
+
+    # ✅ Read version
+    - name: Read version
+      shell: pwsh
+      run: |
+        if (Test-Path update.json) {
+          $json = Get-Content update.json | ConvertFrom-Json
+          $v = $json.version
+        } else {
+          $v = "1.0.0.0"
+        }
+
+        echo "VERSION=$v" >> $env:GITHUB_ENV
+        echo "TAG=v$v" >> $env:GITHUB_ENV
+
+    # ✅ Setup tools
+    - uses: microsoft/setup-msbuild@v2
+    - uses: NuGet/setup-nuget@v1
+
+    # ✅ BUILD USING .SLN (important)
+    - name: Build Project
+      run: |
+        msbuild AIM-X.sln /p:Configuration=Release
+
+    # ✅ Build installer
+    - name: Build Installer
+      uses: Minionguyjpro/Inno-Setup-Action@v1.2.2
+      with:
+        path: installer.iss
+
+    # ✅ Create release
+    - name: Release
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: ${{ env.TAG }}
+        name: AIM-X ${{ env.TAG }}
+        files: setup_output/AIM-X-Setup.exe
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
