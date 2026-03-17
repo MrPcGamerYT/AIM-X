@@ -8,7 +8,7 @@ OutputBaseFilename=AIM-X-Setup
 
 ; --- PUBLISHER DETAILS ---
 AppPublisher=Mr.Pc Gamer
-AppPublisherURL=https://github.com/MrPcGamerYT/Optimizer
+AppPublisherURL=https://github.com/MrPcGamerYT/AIM-X
 VersionInfoCompany=Mr.Pc Gamer
 VersionInfoDescription=Optimizer System Setup
 VersionInfoVersion=1.0.3
