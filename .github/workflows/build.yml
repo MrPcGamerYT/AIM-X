@@ -58,9 +58,7 @@ jobs:
           exit 1
         }
 
-        echo "EXE_PATH=$($exe.FullName)" >> $env:GITHUB_ENV
-        Write-Host "Found EXE: $($exe.FullName)"
-
+        Write-Host "EXE FOUND: $($exe.FullName)"
     # Build installer
     - name: Build Installer
       uses: Minionguyjpro/Inno-Setup-Action@v1.2.2
