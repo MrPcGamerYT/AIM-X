@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -17,7 +17,7 @@ namespace Aim_X
             this.BackColor = Color.FromArgb(10, 10, 10);
 
             // --- LOCK SIZE PREVENT FULLSCREEN ---
-            this.Size = new Size(800, 450); // Set this to your preferred MainPanel size
+            this.Size = new Size(800, 450); 
             this.MaximumSize = this.Size;
             this.MinimumSize = this.Size;
             this.MaximizeBox = false;
@@ -25,6 +25,7 @@ namespace Aim_X
             lblStatus.Text = "STATUS: IDLE (READY)";
             lblStatus.ForeColor = Color.White;
 
+            // Restore user settings when the app is completely closed
             Application.ApplicationExit += (s, e) => {
                 AimXEngine.RevertAllSettings();
             };
@@ -86,7 +87,11 @@ namespace Aim_X
                 this.Hide();
                 Program.trayIcon.ShowBalloonTip(2000, "Aim X v21", "Running in Background!", ToolTipIcon.Info);
             }
-            AimXEngine.RevertAllSettings(); // Automatically restores their personal settings
+            else
+            {
+                // If the app is actually quitting (e.g., from Tray Exit)
+                AimXEngine.RevertAllSettings();
+            }
             base.OnFormClosing(e);
         }
 
@@ -100,12 +105,14 @@ namespace Aim_X
         // --- BUTTON EVENTS ---
         private void btnOptimize_Click(object sender, EventArgs e)
         {
+            UpdateStatus("OPTIMIZING HID & MOUSE...", Color.Lime);
             AimXEngine.OptimizeMouse();
             UpdateStatus("MOUSE OPTIMIZED!", Color.Lime);
         }
 
         private void btnFPS_Click(object sender, EventArgs e)
         {
+            UpdateStatus("UNPARKING CORES & BOOSTING FPS...", Color.Red);
             AimXEngine.StabilizeFPS();
             UpdateStatus("FPS BOOST ACTIVE!", Color.Red);
         }
@@ -118,27 +125,31 @@ namespace Aim_X
 
         private void btnInject_Click_1(object sender, EventArgs e)
         {
+            UpdateStatus("INJECTING SENSITIVITY...", Color.Gold);
             AimXEngine.InjectEmulatorTweaks();
             UpdateStatus("CONFIGS INJECTED!", Color.Gold);
         }
 
         private void btnClean_Click_1(object sender, EventArgs e)
         {
+            UpdateStatus("DELETING TRASH FILES...", Color.Cyan);
             AimXEngine.CleanSystem();
             UpdateStatus("SYSTEM CLEANED!", Color.Cyan);
         }
 
         private void btnEngine_Click_1(object sender, EventArgs e)
         {
+            UpdateStatus("APPLYING REGISTRY TWEAKS...", Color.Magenta);
             AimXEngine.ApplyEngineTweaks();
             UpdateStatus("ENGINE TWEAKED!", Color.Magenta);
         }
 
+        // --- THE MASTER BOOSTER (Everything in One Click) ---
         private void guna2Button2_Click(object sender, EventArgs e)
         {
             try
             {
-                UpdateStatus("OPTIMIZING MOUSE...", Color.Lime);
+                UpdateStatus("OPTIMIZING MOUSE & HID...", Color.Lime);
                 AimXEngine.OptimizeMouse();
                 Application.DoEvents();
                 Thread.Sleep(300);
@@ -148,8 +159,8 @@ namespace Aim_X
                 Application.DoEvents();
                 Thread.Sleep(300);
 
-                UpdateStatus("STABILIZING FPS...", Color.Red);
-                AimXEngine.StabilizeFPS();
+                UpdateStatus("UNPARKING CPU CORES...", Color.Red);
+                AimXEngine.StabilizeFPS(); // This now includes Core Unparking
                 Application.DoEvents();
                 Thread.Sleep(300);
 
@@ -163,7 +174,7 @@ namespace Aim_X
                 Application.DoEvents();
                 Thread.Sleep(500);
 
-                UpdateStatus("FULL OPTIMIZATION COMPLETE!", Color.Lime);
+                UpdateStatus("ULTIMATE BOOST COMPLETE!", Color.Lime);
             }
             catch
             {
@@ -181,8 +192,7 @@ namespace Aim_X
             Process.Start(new ProcessStartInfo { FileName = "https://discord.gg/XbqcMzwfQQ", UseShellExecute = true });
         }
 
-        // --- FIXED: BLOCK FULLSCREEN & ENABLE DRAGGING ---
-        // --- FIXED: BLOCK FULLSCREEN & ENABLE DRAGGING (v21 STABLE) ---
+        // --- WINDOWS DRAGGING & SNAP LOGIC ---
         protected override void WndProc(ref Message m)
         {
             const int WM_NCHITTEST = 0x84;
@@ -190,26 +200,20 @@ namespace Aim_X
             const int HTCLIENT = 0x01;
             const int WM_SYSCOMMAND = 0x0112;
             const int SC_MAXIMIZE = 0xF030;
-            const int WM_NCLBUTTONDBLCLK = 0x00A3; // Block double click maximize
+            const int WM_NCLBUTTONDBLCLK = 0x00A3; 
 
-            // 1. Block Maximize Command (Snap-to-top)
             if (m.Msg == WM_SYSCOMMAND && (int)m.WParam == SC_MAXIMIZE) return;
-
-            // 2. Block Double Click on Header
             if (m.Msg == WM_NCLBUTTONDBLCLK) return;
 
             base.WndProc(ref m);
 
-            // 3. Enable Smooth Dragging with High-DPI Fix
             if (m.Msg == WM_NCHITTEST && (int)m.Result == HTCLIENT)
             {
-                // Extract X and Y coordinates from LParam safely
                 short x = (short)(m.LParam.ToInt32() & 0xFFFF);
                 short y = (short)((m.LParam.ToInt32() >> 16) & 0xFFFF);
                 
                 Point clientPoint = this.PointToClient(new Point(x, y));
 
-                // If the mouse is in the top 50 pixels, treat it as the Title Bar (Caption)
                 if (clientPoint.Y <= 50)
                 {
                     m.Result = (IntPtr)HTCAPTION;
