@@ -33,7 +33,7 @@ jobs:
     - uses: microsoft/setup-msbuild@v2
     - uses: NuGet/setup-nuget@v1
 
-    # ✅ BUILD PROJECT (NO .SLN NEEDED)
+    # ✅ BUILD PROJECT
     - name: Build Project
       shell: pwsh
       run: |
@@ -47,14 +47,19 @@ jobs:
         nuget restore $proj.FullName
         msbuild $proj.FullName /p:Configuration=Release
 
-    # ✅ FIXED OUTPUT CHECK
+    # ✅ SMART OUTPUT CHECK (NO MORE ERRORS)
     - name: Check Output
       shell: pwsh
       run: |
-        if (!(Test-Path "AIM-X\AIM-X\bin\Release")) {
-          Write-Error "Build failed - no output folder"
+        $exe = Get-ChildItem -Recurse -Filter "*.exe" | Where-Object { $_.Name -like "*Aim*" } | Select-Object -First 1
+
+        if (-not $exe) {
+          Write-Error "Build failed - no EXE found"
           exit 1
         }
+
+        echo "EXE_PATH=$($exe.FullName)" >> $env:GITHUB_ENV
+        Write-Host "Found EXE: $($exe.FullName)"
 
     # Build installer
     - name: Build Installer
