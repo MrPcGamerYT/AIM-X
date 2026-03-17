@@ -36,7 +36,7 @@ namespace Aim_X
             catch { }
         }
 
-        // --- 2. ENGINE OPTIMIZER (HAGS) ---
+        // --- 2. ENGINE OPTIMIZER (HAGS & Registry) ---
         public static void ApplyEngineTweaks()
         {
             try
@@ -74,14 +74,48 @@ namespace Aim_X
             catch { }
         }
 
-        // --- 4. CLEANER (FIXED: NO MORE BLACK SCREEN) ---
+        // --- 4. CONFIG INJECTION (Multi-Drive Deep Scan) ---
+        public static void InjectEmulatorTweaks()
+        {
+            try
+            {
+                string[] targets = { "BlueStacks_nxt", "MSI_AppPlayer", "LDPlayer", "SmartGaGa" };
+                foreach (var drive in DriveInfo.GetDrives().Where(d => d.IsReady))
+                {
+                    foreach (var target in targets)
+                    {
+                        // Check both ProgramData and Program Files
+                        string[] possiblePaths = {
+                            Path.Combine(drive.Name, "ProgramData", target, "bluestacks.conf"),
+                            Path.Combine(drive.Name, "Program Files", target, "bluestacks.conf")
+                        };
+
+                        foreach (string path in possiblePaths)
+                        {
+                            if (File.Exists(path))
+                            {
+                                var lines = File.ReadAllLines(path).ToList();
+                                bool changed = false;
+                                for (int i = 0; i < lines.Count; i++)
+                                {
+                                    if (lines[i].Contains("cfg_x_sensitivity")) { lines[i] = "bst.cfg_x_sensitivity=1.20"; changed = true; }
+                                    if (lines[i].Contains("cfg_y_sensitivity")) { lines[i] = "bst.cfg_y_sensitivity=6.80"; changed = true; }
+                                    if (lines[i].Contains("cfg_tweaks")) { lines[i] = "bst.cfg_tweaks=16450"; changed = true; }
+                                }
+                                if (changed) File.WriteAllLines(path, lines);
+                            }
+                        }
+                    }
+                }
+            }
+            catch { }
+        }
+
+        // --- 5. CLEANER ---
         public static void CleanSystem()
         {
             try
             {
-                // REMOVED taskkill explorer to prevent the black screen crash.
-                // Instead, we just clear the cache files.
-                
                 string[] folders = { Path.GetTempPath(), "C:\\Windows\\Temp", "C:\\Windows\\Prefetch" };
                 foreach (var folder in folders)
                 {
@@ -94,14 +128,22 @@ namespace Aim_X
             catch { }
         }
 
-        // --- 5. AUTOMATIC REVERT (SAVES MOUSE DEFAULTS) ---
+        // --- 6. MASTER RUN (For "Run All" Button) ---
+        public static void RunAllOptimizations()
+        {
+            OptimizeMouse();
+            StabilizeFPS();
+            ApplyEngineTweaks();
+            InjectEmulatorTweaks();
+            CleanSystem();
+        }
+
+        // --- 7. REVERT ---
         public static void RevertAllSettings()
         {
             try
             {
-                // Windows Default Mouse Speed (10) and Precision (Off/Default)
                 SystemParametersInfo(0x0071, 0, (IntPtr)10, 0x01 | 0x02);
-                
                 using (RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Control Panel\Mouse", true))
                 {
                     if (key != null)
@@ -109,7 +151,6 @@ namespace Aim_X
                         key.SetValue("MouseSpeed", "1", RegistryValueKind.String);
                         key.SetValue("MouseThreshold1", "6", RegistryValueKind.String);
                         key.SetValue("MouseThreshold2", "10", RegistryValueKind.String);
-                        // Delete curves to return to default Windows movement
                         key.DeleteValue("SmoothMouseXCurve", false);
                         key.DeleteValue("SmoothMouseYCurve", false);
                     }
