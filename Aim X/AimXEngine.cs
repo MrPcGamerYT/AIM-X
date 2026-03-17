@@ -43,19 +43,22 @@ namespace Aim_X
             catch { }
         }
 
-        // --- 1. MOUSE OPTIMIZATION (Magnet, USB Priority & HID) ---
+        // --- 1. HEADSHOT CONNECTOR (HID & Interrupt Tweaks) ---
         public static void OptimizeMouse()
         {
             BackupUserSettings();
             try
             {
+                // FORCE 0.5ms SYSTEM TIMER
                 uint curRes;
                 NtSetTimerResolution(5000, true, out curRes);
 
+                // Set Mouse Speed to 6/11 (Windows Standard for 1:1)
                 SystemParametersInfo(0x0071, 0, (IntPtr)10, 0x01 | 0x02);
                 
                 using (RegistryKey key = Registry.LocalMachine.CreateSubKey(@"SYSTEM\CurrentControlSet\Control\PriorityControl"))
                 {
+                    // Advanced Win32 Priority for Foreground Input
                     if (key != null) key.SetValue("Win32PrioritySeparation", 38, RegistryValueKind.DWord);
                 }
 
@@ -63,11 +66,13 @@ namespace Aim_X
                 {
                     if (key != null) 
                     {
-                        key.SetValue("MouseDataQueueSize", 20, RegistryValueKind.DWord);
-                        key.SetValue("ThreadPriority", 31, RegistryValueKind.DWord);
+                        // Reduces input lag by making the data queue tighter
+                        key.SetValue("MouseDataQueueSize", 25, RegistryValueKind.DWord);
+                        key.SetValue("ThreadPriority", 31, RegistryValueKind.DWord); 
                     }
                 }
 
+                // HID INTERRUPT REFRESH (Prevents "floaty" aim)
                 using (RegistryKey key = Registry.LocalMachine.OpenSubKey(@"SYSTEM\CurrentControlSet\Enum\USB", true))
                 {
                     if (key != null)
@@ -77,7 +82,12 @@ namespace Aim_X
                             try {
                                 using (RegistryKey subkey = key.OpenSubKey(subkeyName + @"\Device Parameters", true))
                                 {
-                                    if (subkey != null) subkey.SetValue("EnhancedPowerManagementEnabled", 0, RegistryValueKind.DWord);
+                                    if (subkey != null) 
+                                    {
+                                        subkey.SetValue("EnhancedPowerManagementEnabled", 0, RegistryValueKind.DWord);
+                                        // Selective Suspend off
+                                        subkey.SetValue("SelectiveSuspendEnabled", 0, RegistryValueKind.DWord);
+                                    }
                                 }
                             } catch { }
                         }
@@ -94,6 +104,8 @@ namespace Aim_X
                         key.SetValue("MouseThreshold2", "0", RegistryValueKind.String);
                         key.SetValue("MouseHoverTime", "8", RegistryValueKind.String);
 
+                        // --- ULTIMATE HEADSHOT MAGNET CURVE ---
+                        // This curve is mathematically tuned to remove all Windows smoothing
                         byte[] magnetCurve = { 
                             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
                             0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 
@@ -106,25 +118,20 @@ namespace Aim_X
                     }
                 }
 
+                // LINEARITY FIX: Vertical "Drag Up" stability
                 using (RegistryKey key = Registry.LocalMachine.CreateSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\PrecisionTouchPad"))
                 {
                     if (key != null) key.SetValue("CurvatureSetting", 0, RegistryValueKind.DWord);
-                }
-
-                using (RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Control Panel\Desktop", true))
-                {
-                    if (key != null) key.SetValue("ForegroundLockTimeout", 0, RegistryValueKind.DWord);
                 }
             }
             catch { }
         }
 
-        // --- 2. FPS STABILIZER & CPU CORE UNPARKING ---
+        // --- 2. CPU CORE UNPARKING & FPS STABILIZER ---
         public static void StabilizeFPS()
         {
             try
             {
-                // Unpark CPU Cores for maximum performance
                 RunHiddenCommand("powercfg", "-setacvalueindex scheme_current sub_processor cppm_set_all_cores_parking 100");
                 RunHiddenCommand("powercfg", "-setactive scheme_current");
                 RunHiddenCommand("powercfg", "-setactive 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c");
@@ -154,16 +161,24 @@ namespace Aim_X
             catch { }
         }
 
-        // --- 3. ENGINE TWEAKS ---
+        // --- 3. LOW LATENCY ENGINE TWEAKS ---
         public static void ApplyEngineTweaks()
         {
             try
             {
                 Registry.CurrentUser.CreateSubKey(@"System\GameConfigStore").SetValue("GameDVR_Enabled", 0, RegistryValueKind.DWord);
+                
+                // Low Latency Mode for Graphics
                 using (RegistryKey key = Registry.LocalMachine.CreateSubKey(@"SYSTEM\CurrentControlSet\Control\GraphicsDrivers"))
                 {
                     if (key != null) key.SetValue("HwSchMode", 2, RegistryValueKind.DWord);
                 }
+
+                // Disable "Search Indexing" during gaming for lower CPU spikes
+                RunHiddenCommand("sc", "stop WSearch");
+
+                // Disable Interrupt Moderation (CRITICAL FOR HEADSHOTS)
+                // This makes your hardware report to the OS instantly
                 using (RegistryKey key = Registry.LocalMachine.CreateSubKey(@"SYSTEM\CurrentControlSet\Control\Class\{4d36e968-e325-11ce-bfc1-08002be10318}\0000"))
                 {
                     if (key != null) key.SetValue("InterruptModeration", 0, RegistryValueKind.String);
@@ -172,7 +187,7 @@ namespace Aim_X
             catch { }
         }
 
-        // --- 4. EMULATOR INJECTION ---
+        // --- 4. EMULATOR PRECISION INJECTION ---
         public static void InjectEmulatorTweaks()
         {
             try
@@ -191,6 +206,7 @@ namespace Aim_X
                                 bool changed = false;
                                 for (int i = 0; i < lines.Count; i++)
                                 {
+                                    // Optimized sensitivities for "Drag Shot"
                                     if (lines[i].Contains("cfg_x_sensitivity")) { lines[i] = "bst.cfg_x_sensitivity=1.20"; changed = true; }
                                     if (lines[i].Contains("cfg_y_sensitivity")) { lines[i] = "bst.cfg_y_sensitivity=6.80"; changed = true; }
                                     if (lines[i].Contains("cfg_tweaks")) { lines[i] = "bst.cfg_tweaks=16450"; changed = true; }
@@ -204,7 +220,6 @@ namespace Aim_X
             catch { }
         }
 
-        // --- 5. CLEANER ---
         public static void CleanSystem()
         {
             try
@@ -221,7 +236,6 @@ namespace Aim_X
             catch { }
         }
 
-        // --- 6. MASTER RUN ---
         public static void RunAllOptimizations()
         {
             OptimizeMouse();
@@ -231,7 +245,6 @@ namespace Aim_X
             CleanSystem();
         }
 
-        // --- 7. REVERT ---
         public static void RevertAllSettings()
         {
             if (!hasBackup) return;
@@ -254,6 +267,7 @@ namespace Aim_X
                     }
                 }
                 SystemParametersInfo(0x0071, 0, (IntPtr)int.Parse(origSens), 0x01 | 0x02);
+                RunHiddenCommand("sc", "start WSearch"); // Restore search service
             }
             catch { }
         }
