@@ -1,6 +1,6 @@
 [Setup]
 AppName=AIM X
-AppVersion=1.0.0.0
+AppVersion=
 DefaultDirName={autopf}\AIM X
 DefaultGroupName=AIM X
 OutputDir=setup_output
