@@ -1,64 +1,70 @@
-# 🎯 Aim X 
+# 🎯 Aim X: The Ultimate System Engine
 
-![Version](https://img.shields.io/github/v/release/MrPcGamerYT/AIM-X?style=for-the-badge&color=blue)
+![Version](https://img.shields.io/github/v/release/MrPcGamerYT/AIM-X?style=for-the-badge&color=0078D4)
 ![License](https://img.shields.io/badge/License-Proprietary-red?style=for-the-badge)
-![GitHub Repo stars](https://img.shields.io/github/stars/MrPcGamerYT/AIM-X?style=for-the-badge&color=yellow)
+![GitHub Repo stars](https://img.shields.io/github/stars/MrPcGamerYT/AIM-X?style=for-the-badge&color=FFD700)
+![Platform](https://img.shields.io/badge/Platform-Windows-0078D4?style=for-the-badge&logo=windows)
 
-**Aim X** is a high-performance system enhancement tool designed to optimize gaming responsiveness and engine stability. Built with the same precision as the **Optimizer** project, Aim X focuses on low-latency interactions and ultra-lightweight execution.
-
----
-
-## 🚀 Key Features
-
-* **Engine Optimization:** Fine-tuned system parameters for better gaming stability.
-* **Ultra-Lite Performance:** Minimal RAM and CPU usage, perfect for low-end PCs.
-* **Auto-Update System:** Never miss an update with the built-in version checker.
-* **Sleek UI:** Modern interface powered by Guna.UI2.
-* **Admin Secured:** Built-in privilege handling for system-level modifications.
-
-## 🛠️ Installation
-
-1.  Go to the [Latest Release](https://github.com/MrPcGamerYT/AIM-X/releases/latest) page.
-2.  Download `AimX_Setup.exe`.
-3.  Run the installer (requires Administrator rights).
-4.  Launch **Aim X** from your desktop and enjoy!
+**Aim X** is a high-performance system enhancement suite engineered to maximize gaming responsiveness and engine stability. Built with the same architectural precision as the **Optimizer** project, Aim X delivers ultra-low latency and lightweight execution for competitive environments.
 
 ---
 
-## 📸 Screenshots
+## 🚀 Premium Features
 
-| Loading Screen | Main Interface |
-| :--- | :--- |
-| ![Loading Window](https://github.com/MrPcGamerYT/AIM-X/blob/main/Screenshots/loading.png) | ![Main UI](https://github.com/MrPcGamerYT/AIM-X/blob/main/Screenshots/main.png) |
+* **⚡ Engine Optimization:** Advanced system-level tweaks for enhanced gaming stability.
+* **📉 Ultra-Lite Footprint:** Engineered for minimal RAM and CPU impact—ideal for low-end hardware.
+* **🔄 Live Update Core:** Built-in version tracking ensures you are always running the latest optimizations.
+* **🎨 Elite UI:** A modern, high-quality interface powered by Guna.UI2 components.
+* **🛡️ Kernel-Level Access:** Secured administrative handling for deep system-level modifications.
+
 ---
 
-## 💻 Technical Details
+## 📸 Interface Preview
 
-Aim X is developed using **C#** and utilizing the **.NET Framework**. It features a robust automated build system via **GitHub Actions** to ensure every release is compiled cleanly from the source.
+| Loading Sequence | Main Control Panel |
+| :---: | :---: |
+| <img src="https://github.com/MrPcGamerYT/AIM-X/blob/main/Screenshots/loading.png?raw=true" width="400"> | <img src="https://github.com/MrPcGamerYT/AIM-X/blob/main/Screenshots/main.png?raw=true" width="400"> |
+
+---
+
+## 🛠️ Installation Guide
+
+1.  Navigate to the [**Latest Release**](https://github.com/MrPcGamerYT/AIM-X/releases/latest) page.
+2.  Download the `AimX_Setup.exe` installer.
+3.  Execute the installer as **Administrator**.
+4.  Launch **Aim X** and transform your system performance.
+
+---
+
+## 💻 Technical Stack
+
+Aim X is built on the **.NET Framework** using a strictly controlled CI/CD pipeline.
 
 * **Language:** C# (WinForms)
-* **Libraries:** Guna.UI2, Newtonsoft.Json
-* **Build System:** MSBuild + Inno Setup
+* **Components:** Guna.UI2, Newtonsoft.Json
+* **Automation:** GitHub Actions (Automated Builds)
+* **Compiler:** MSBuild + Inno Setup Compiler
 
 ---
 
-## 🤝 Support & Socials
+## 🤝 Community & Support
 
-If you like my projects, consider following me and checking out my YouTube channel for more emulator modding and optimization content!
+Stay updated with the latest emulator modding, system tweaks, and optimization guides.
 
-* **YouTube:** [MR.PC GAMER](https://youtube.com/@MrPcGamerYT)
+* **YouTube:** [MR.PC GAMER](https://youtube.com/@MrPcGamerYT) — *Subscribe for tutorials!*
 * **GitHub:** [@MrPcGamerYT](https://github.com/MrPcGamerYT)
 
 ---
 
-## 🛡️ License
+## 🛡️ License & Legal
 
 **Copyright © 2026 Mr.Pc Gamer (MR.PC GAMER). All Rights Reserved.**
 
-This software is **proprietary**. You are permitted to download and use the compiled binaries for personal use. However, you are **not** permitted to:
-* Copy, modify, or distribute the source code.
-* Reverse engineer or decompile the binaries.
-* Use any part of this code in your own projects without explicit permission.
+This software is **Proprietary**. While users are welcome to download and use the compiled binaries for personal performance enhancement, the following actions are strictly prohibited:
+
+* **No Redistribution:** You may not host these files on other mirrors.
+* **No Derivative Works:** Modification or distribution of the source code is forbidden.
+* **No Reverse Engineering:** Attempting to decompile or extract assets is a violation of this license.
 
 ---
-*Developed by Mr.Pc Gamer © 2026*
+*Built with passion by **Mr.Pc Gamer** © 2026*
