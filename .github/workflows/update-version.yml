@@ -4,6 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
+        description: "Enter version (e.g. 1.0.1)"
         required: true
 
 jobs:
@@ -15,8 +16,8 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    # ✅ update.json
-    - name: Update JSON
+    # Update JSON
+    - name: Update update.json
       shell: pwsh
       run: |
         $v = "${{ github.event.inputs.version }}"
@@ -26,7 +27,7 @@ jobs:
           url = "https://github.com/MrPcGamerYT/AIM-X/releases/latest/download/AIM-X-Setup.exe"
         } | ConvertTo-Json -Compress | Set-Content update.json
 
-    # ✅ installer version
+    # Update installer version
     - name: Update installer
       shell: pwsh
       run: |
@@ -34,8 +35,8 @@ jobs:
         -replace 'AppVersion=.*', "AppVersion=${{ github.event.inputs.version }}" |
         Set-Content installer.iss
 
-    # ✅ commit
-    - name: Commit
+    # Commit
+    - name: Commit changes
       run: |
         git config user.name github-actions
         git config user.email github-actions@github.com
