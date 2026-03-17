@@ -14,24 +14,47 @@ namespace Aim_X
         [DllImport("user32.dll", SetLastError = true)]
         static extern bool SystemParametersInfo(uint uiAction, uint uiParam, IntPtr pvParam, uint fWinIni);
 
-        // --- 1. FPS STABILIZER (Now includes Latency & CPU Priority Tweaks) ---
+        // --- 0. PRIVATE STORAGE (Restores USER settings, not defaults) ---
+        private static string origSens, origSpeed, origThresh1, origThresh2;
+        private static byte[] origXCurve, origYCurve;
+        private static bool hasBackup = false;
+
+        private static void BackupUserSettings()
+        {
+            if (hasBackup) return; 
+            try
+            {
+                using (RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Control Panel\Mouse", false))
+                {
+                    if (key != null)
+                    {
+                        origSens = key.GetValue("MouseSensitivity", "10").ToString();
+                        origSpeed = key.GetValue("MouseSpeed", "1").ToString();
+                        origThresh1 = key.GetValue("MouseThreshold1", "6").ToString();
+                        origThresh2 = key.GetValue("MouseThreshold2", "10").ToString();
+                        origXCurve = (byte[])key.GetValue("SmoothMouseXCurve");
+                        origYCurve = (byte[])key.GetValue("SmoothMouseYCurve");
+                        hasBackup = true;
+                    }
+                }
+            }
+            catch { }
+        }
+
+        // --- 1. FPS STABILIZER ---
         public static void StabilizeFPS()
         {
             try
             {
-                // High Performance Power Plan
                 RunHiddenCommand("powercfg", "-setactive 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c");
-                
-                // System Responsiveness - Gives 100% CPU to Games
                 using (RegistryKey key = Registry.LocalMachine.CreateSubKey(@"SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile"))
                 {
                     if (key != null)
                     {
                         key.SetValue("SystemResponsiveness", 0, RegistryValueKind.DWord);
-                        key.SetValue("NetworkThrottlingIndex", 0xFFFFFFFF, RegistryValueKind.DWord); // Fixes Ping
+                        key.SetValue("NetworkThrottlingIndex", 0xFFFFFFFF, RegistryValueKind.DWord);
                     }
                 }
-
                 RunHiddenCommand("bcdedit", "/set disabledynamictick yes");
                 RunHiddenCommand("bcdedit", "/set useplatformclock no");
 
@@ -48,19 +71,16 @@ namespace Aim_X
             catch { }
         }
 
-        // --- 2. ENGINE OPTIMIZER (Now includes HAGS & Interrupt Moderation) ---
+        // --- 2. ENGINE OPTIMIZER ---
         public static void ApplyEngineTweaks()
         {
             try
             {
                 Registry.CurrentUser.CreateSubKey(@"System\GameConfigStore").SetValue("GameDVR_Enabled", 0, RegistryValueKind.DWord);
-                
                 using (RegistryKey key = Registry.LocalMachine.CreateSubKey(@"SYSTEM\CurrentControlSet\Control\GraphicsDrivers"))
                 {
-                    if (key != null) key.SetValue("HwSchMode", 2, RegistryValueKind.DWord); // Force HAGS
+                    if (key != null) key.SetValue("HwSchMode", 2, RegistryValueKind.DWord);
                 }
-
-                // Interrupt Moderation Fix - Reduces Click & Input Delay
                 using (RegistryKey key = Registry.LocalMachine.CreateSubKey(@"SYSTEM\CurrentControlSet\Control\Class\{4d36e968-e325-11ce-bfc1-08002be10318}\0000"))
                 {
                     if (key != null) key.SetValue("InterruptModeration", 0, RegistryValueKind.String);
@@ -69,20 +89,17 @@ namespace Aim_X
             catch { }
         }
 
-        // --- 3. MOUSE OPTIMIZATION (v22 KILLER RAW - Magnet Logic Added) ---
+        // --- 3. MOUSE OPTIMIZATION (Now with Auto-Backup) ---
         public static void OptimizeMouse()
         {
+            BackupUserSettings(); // Save user's current settings before changing anything
             try
             {
-                // Force linear state at system level
                 SystemParametersInfo(0x0071, 0, (IntPtr)10, 0x01 | 0x02);
-
-                // Kernel Mouse Queue Tweak (Under Mouse Opt.)
                 using (RegistryKey key = Registry.LocalMachine.CreateSubKey(@"SYSTEM\CurrentControlSet\Services\Mouclass\Parameters"))
                 {
                     if (key != null) key.SetValue("MouseDataQueueSize", 20, RegistryValueKind.DWord);
                 }
-
                 using (RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Control Panel\Mouse", true))
                 {
                     if (key != null)
@@ -93,20 +110,11 @@ namespace Aim_X
                         key.SetValue("MouseThreshold2", "0", RegistryValueKind.String);
                         key.SetValue("MouseHoverTime", "8", RegistryValueKind.String);
 
-                        // The "Headshot Curve" - Smooth Drag Logic
-                        byte[] killerCurve = { 
-                            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-                            0x00, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-                            0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 
-                            0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 
-                            0x00, 0x00, 0x05, 0x00, 0x00, 0x00, 0x00, 0x00 
-                        };
+                        byte[] killerCurve = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x05, 0x00, 0x00, 0x00, 0x00, 0x00 };
                         key.SetValue("SmoothMouseXCurve", killerCurve, RegistryValueKind.Binary);
                         key.SetValue("SmoothMouseYCurve", killerCurve, RegistryValueKind.Binary);
                     }
                 }
-
-                // Desktop Refresh Rate Fix for Cursor (Under Mouse Opt.)
                 using (RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Control Panel\Desktop", true))
                 {
                     if (key != null) key.SetValue("ForegroundLockTimeout", 0, RegistryValueKind.DWord);
@@ -115,7 +123,7 @@ namespace Aim_X
             catch { }
         }
 
-        // --- 4. CONFIG INJECTION (Multi-Drive Scan remains the same) ---
+        // --- 4. CONFIG INJECTION ---
         public static void InjectEmulatorTweaks()
         {
             try
@@ -125,12 +133,8 @@ namespace Aim_X
                 {
                     foreach (var target in targets)
                     {
-                        string[] possiblePaths = {
-                            Path.Combine(drive.Name, "ProgramData", target, "bluestacks.conf"),
-                            Path.Combine(drive.Name, "Program Files", target, "bluestacks.conf")
-                        };
-
-                        foreach (string path in possiblePaths)
+                        string[] paths = { Path.Combine(drive.Name, "ProgramData", target, "bluestacks.conf"), Path.Combine(drive.Name, "Program Files", target, "bluestacks.conf") };
+                        foreach (string path in paths)
                         {
                             if (File.Exists(path))
                             {
@@ -178,39 +182,37 @@ namespace Aim_X
             CleanSystem();
         }
 
-        // --- 7. REVERT ---
+        // --- 7. REVERT (Restores User's Personal Settings) ---
         public static void RevertAllSettings()
         {
+            if (!hasBackup) return;
             try
             {
-                SystemParametersInfo(0x0071, 0, (IntPtr)10, 0x01 | 0x02);
                 using (RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Control Panel\Mouse", true))
                 {
                     if (key != null)
                     {
-                        key.SetValue("MouseSpeed", "1", RegistryValueKind.String);
-                        key.SetValue("MouseThreshold1", "6", RegistryValueKind.String);
-                        key.SetValue("MouseThreshold2", "10", RegistryValueKind.String);
-                        key.DeleteValue("SmoothMouseXCurve", false);
-                        key.DeleteValue("SmoothMouseYCurve", false);
+                        key.SetValue("MouseSensitivity", origSens, RegistryValueKind.String);
+                        key.SetValue("MouseSpeed", origSpeed, RegistryValueKind.String);
+                        key.SetValue("MouseThreshold1", origThresh1, RegistryValueKind.String);
+                        key.SetValue("MouseThreshold2", origThresh2, RegistryValueKind.String);
+                        
+                        if (origXCurve != null) key.SetValue("SmoothMouseXCurve", origXCurve, RegistryValueKind.Binary);
+                        else key.DeleteValue("SmoothMouseXCurve", false);
+
+                        if (origYCurve != null) key.SetValue("SmoothMouseYCurve", origYCurve, RegistryValueKind.Binary);
+                        else key.DeleteValue("SmoothMouseYCurve", false);
                     }
                 }
+                // Push the restored sensitivity to the system
+                SystemParametersInfo(0x0071, 0, (IntPtr)int.Parse(origSens), 0x01 | 0x02);
             }
             catch { }
         }
 
         private static void RunHiddenCommand(string file, string args)
         {
-            try
-            {
-                Process.Start(new ProcessStartInfo(file, args)
-                {
-                    CreateNoWindow = true,
-                    WindowStyle = ProcessWindowStyle.Hidden,
-                    UseShellExecute = false
-                });
-            }
-            catch { }
+            try { Process.Start(new ProcessStartInfo(file, args) { CreateNoWindow = true, WindowStyle = ProcessWindowStyle.Hidden, UseShellExecute = false }); } catch { }
         }
     }
 }
