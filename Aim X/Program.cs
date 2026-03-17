@@ -1,9 +1,10 @@
-﻿using System;
+using System;
 using System.Diagnostics;
 using System.Drawing;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
 using System.Security.Principal;
+using System.Threading;
 
 namespace Aim_X
 {
@@ -14,6 +15,7 @@ namespace Aim_X
         [STAThread]
         static void Main()
         {
+            // 1. ADMIN CHECK
             if (!IsRunningAsAdmin())
             {
                 ProcessStartInfo proc = new ProcessStartInfo();
@@ -25,7 +27,7 @@ namespace Aim_X
                 return;
             }
 
-            // Process Guard
+            // 2. PROCESS GUARD (Kill duplicates)
             string currentName = Process.GetCurrentProcess().ProcessName;
             Process[] duplicates = Process.GetProcessesByName(currentName);
             if (duplicates.Length > 1)
@@ -39,10 +41,17 @@ namespace Aim_X
                 }
             }
 
+            // 3. CRASH SAFETY HANDLERS (New)
+            // If the app crashes, try to revert mouse settings before dying
+            Application.ThreadException += (s, e) => { AimXEngine.RevertAllSettings(); };
+            AppDomain.CurrentDomain.ProcessExit += (s, e) => { AimXEngine.RevertAllSettings(); };
+
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
 
             SetupTray();
+            
+            // Initial Startup Optimization
             AimXEngine.OptimizeMouse();
 
             Application.Run(new SplashScreen());
@@ -59,7 +68,7 @@ namespace Aim_X
         {
             try
             {
-                // 'icon' is the name in your Resources tab
+                // 'icon' should be in your Project Resources
                 trayIcon.Icon = Properties.Resources.icon;
                 trayIcon.Visible = true;
                 trayIcon.Text = "AIM X - SUBSCRIBER EDITION";
@@ -67,14 +76,25 @@ namespace Aim_X
                 ContextMenuStrip menu = new ContextMenuStrip();
 
                 menu.Items.Add("Open Aim X", null, (s, e) => {
+                    bool formOpen = false;
                     foreach (Form f in Application.OpenForms)
                     {
-                        if (f is MainPanel) { f.Show(); f.WindowState = FormWindowState.Normal; f.BringToFront(); }
+                        if (f is MainPanel) { f.Show(); f.WindowState = FormWindowState.Normal; f.BringToFront(); formOpen = true; }
                     }
+                    // If MainPanel isn't loaded yet, you might need to show it here
                 });
-                menu.Items.Add("Optimize Now", null, (s, e) => AimXEngine.OptimizeMouse());
-                menu.Items.Add("YouTube: MR.PC GAMER", null, (s, e) => Process.Start(new ProcessStartInfo("https://youtube.com/@MR.PC_GAMER_YT") { UseShellExecute = true }));
+
+                menu.Items.Add("Optimize Now", null, (s, e) => {
+                    AimXEngine.OptimizeMouse();
+                    trayIcon.ShowBalloonTip(2000, "Aim X", "Mouse Optimized Successfully!", ToolTipIcon.Info);
+                });
+
+                menu.Items.Add("YouTube: MR.PC GAMER", null, (s, e) => {
+                    Process.Start(new ProcessStartInfo("https://youtube.com/@MR.PC_GAMER_YT") { UseShellExecute = true });
+                });
+
                 menu.Items.Add("-");
+
                 menu.Items.Add("Exit & Revert", null, (s, e) => {
                     AimXEngine.RevertAllSettings();
                     trayIcon.Visible = false;
