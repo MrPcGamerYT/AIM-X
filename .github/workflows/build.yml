@@ -33,7 +33,7 @@ jobs:
     - uses: microsoft/setup-msbuild@v2
     - uses: NuGet/setup-nuget@v1
 
-    # ✅ BUILD PROJECT
+    # 🔥 BUILD PROJECT
     - name: Build Project
       shell: pwsh
       run: |
@@ -47,28 +47,53 @@ jobs:
         nuget restore $proj.FullName
         msbuild $proj.FullName /p:Configuration=Release
 
-    - name: Check Output
+    # 🔥 FIND EXE (NO HARD PATH)
+    - name: Find EXE
       shell: pwsh
       run: |
-        if (!(Test-Path "AIM-X\AIM-X\Aim X\bin\Release")) {
-          Write-Error "Build failed - no output folder"
+        Write-Host "Searching for EXE..."
+
+        $exe = Get-ChildItem -Recurse -Filter "*.exe" |
+               Where-Object { $_.FullName -like "*bin\Release*" } |
+               Select-Object -First 1
+
+        if (-not $exe) {
+          Write-Error "❌ No EXE found"
           exit 1
         }
 
-        Write-Host "Build output found!"
-    # Build installer
+        Write-Host "✅ Found EXE: $($exe.FullName)"
+        echo "EXE_PATH=$($exe.FullName)" >> $env:GITHUB_ENV
+
+    # 🔥 BUILD INSTALLER
     - name: Build Installer
       uses: Minionguyjpro/Inno-Setup-Action@v1.2.2
       with:
         path: installer.iss
 
-    # Release
+    # 🔥 FIND INSTALLER (NO HARD PATH)
+    - name: Find Installer
+      shell: pwsh
+      run: |
+        $setup = Get-ChildItem -Recurse -Filter "*.exe" |
+                 Where-Object { $_.Name -like "*Setup*" } |
+                 Select-Object -First 1
+
+        if (-not $setup) {
+          Write-Error "❌ Installer not found"
+          exit 1
+        }
+
+        Write-Host "✅ Installer: $($setup.FullName)"
+        echo "SETUP_PATH=$($setup.FullName)" >> $env:GITHUB_ENV
+
+    # 🔥 RELEASE
     - name: Create Release
       uses: softprops/action-gh-release@v2
       with:
         tag_name: ${{ env.TAG }}
         name: AIM X ${{ env.TAG }}
-        files: setup_output/AIM-X-Setup.exe
+        files: ${{ env.SETUP_PATH }}
         make_latest: true
       env:
         GITHUB_TOKEN: ${{ github.token }}
