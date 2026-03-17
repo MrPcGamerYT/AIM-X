@@ -16,7 +16,6 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    # Update JSON
     - name: Update update.json
       shell: pwsh
       run: |
@@ -27,15 +26,13 @@ jobs:
           url = "https://github.com/MrPcGamerYT/AIM-X/releases/latest/download/AIM-X-Setup.exe"
         } | ConvertTo-Json -Compress | Set-Content update.json
 
-    # Update installer version
-    - name: Update installer
+    - name: Update installer version
       shell: pwsh
       run: |
         (Get-Content installer.iss) `
-        -replace 'AppVersion=.*', "AppVersion=${{ github.event.inputs.version }}" |
+        -replace 'AppVersion=.*', "AppVersion=$v" |
         Set-Content installer.iss
 
-    # Commit
     - name: Commit changes
       run: |
         git config user.name github-actions
