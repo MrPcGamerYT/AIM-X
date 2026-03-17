@@ -10,9 +10,7 @@ PrivilegesRequired=admin
 SetupIconFile=app_icon.ico
 
 [Files]
-; 👇 THIS MATCHES YOUR STRUCTURE
-Source: "AIM-X\bin\Release\*.exe"; DestDir: "{app}"; Flags: ignoreversion
-Source: "AIM-X\bin\Release\*.dll"; DestDir: "{app}"; Flags: ignoreversion
+; take everything from build output
 Source: "AIM-X\bin\Release\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
