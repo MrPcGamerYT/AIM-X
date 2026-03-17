@@ -12,9 +12,9 @@ namespace Aim_X
 
         private string[] subLogs = {
             "AIM-X: Locating Emulator...",
-            "YT: MR.PC GAMER Config v21...",
+            "YT: MR.PC GAMER Config...",
             "BYPASS: Bypassing Registry...",
-            "SENS: Loading 6.80 Y-Axis...",
+            "SENS: Loading Y-Axis...",
             "READY: 100% HS READY!"
         };
 
