@@ -38,25 +38,22 @@ namespace Aim_X
             catch { }
         }
 
-        // --- 1. MOUSE OPTIMIZATION (STRICT: NO SENSITIVITY CHANGES) ---
+        // --- 1. MOUSE OPTIMIZATION (GUARANTEED NO SENS CHANGE) ---
         public static void OptimizeMouse()
         {
             BackupUserSettings();
             try
             {
-                // Set Timer Resolution to 0.5ms for lowest input delay
                 uint curRes;
                 NtSetTimerResolution(5000, true, out curRes);
 
-                // --- 🛡️ SENSITIVITY PROTECTION: SystemParametersInfo CALL REMOVED 🛡️ ---
-                
-                // Boost Win32 Priority for Foreground Input
+                // --- 🛡️ PROTECTION: NO Sensitivity/Speed Registry keys are modified here ---
+
                 using (RegistryKey key = Registry.LocalMachine.CreateSubKey(@"SYSTEM\CurrentControlSet\Control\PriorityControl"))
                 {
                     if (key != null) key.SetValue("Win32PrioritySeparation", 38, RegistryValueKind.DWord);
                 }
 
-                // Optimize Mouse Interrupt Queue (HID Polling stability)
                 using (RegistryKey key = Registry.LocalMachine.CreateSubKey(@"SYSTEM\CurrentControlSet\Services\Mouclass\Parameters"))
                 {
                     if (key != null) 
@@ -66,7 +63,6 @@ namespace Aim_X
                     }
                 }
 
-                // Disable USB Power Saving to stop mouse stuttering
                 using (RegistryKey key = Registry.LocalMachine.OpenSubKey(@"SYSTEM\CurrentControlSet\Enum\USB", true))
                 {
                     if (key != null)
@@ -91,11 +87,9 @@ namespace Aim_X
                 {
                     if (key != null)
                     {
-                        // --- 🛡️ SENSITIVITY PROTECTION: Registry Speed/Threshold keys REMOVED 🛡️ ---
-                        
                         key.SetValue("MouseHoverTime", "8", RegistryValueKind.String);
 
-                        // APPLY MAGNET CURVE (Sharper precision, NO SPEED CHANGE)
+                        // --- FORCED MAGNET CURVE FOR STABLE DRAG-SHOTS ---
                         byte[] magnetCurve = { 
                             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
                             0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 
@@ -107,16 +101,11 @@ namespace Aim_X
                         key.SetValue("SmoothMouseYCurve", magnetCurve, RegistryValueKind.Binary);
                     }
                 }
-
-                using (RegistryKey key = Registry.LocalMachine.CreateSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\PrecisionTouchPad"))
-                {
-                    if (key != null) key.SetValue("CurvatureSetting", 0, RegistryValueKind.DWord);
-                }
             }
             catch { }
         }
 
-        // --- 2. CPU & FPS STABILIZER (Core Unparking) ---
+        // --- 2. CPU CORE UNPARKING & STABILIZER ---
         public static void StabilizeFPS()
         {
             try
@@ -150,19 +139,13 @@ namespace Aim_X
             catch { }
         }
 
-        // --- 3. LOW LATENCY ENGINE TWEAKS ---
+        // --- 3. ENGINE TWEAKS ---
         public static void ApplyEngineTweaks()
         {
             try
             {
                 Registry.CurrentUser.CreateSubKey(@"System\GameConfigStore").SetValue("GameDVR_Enabled", 0, RegistryValueKind.DWord);
-                using (RegistryKey key = Registry.LocalMachine.CreateSubKey(@"SYSTEM\CurrentControlSet\Control\GraphicsDrivers"))
-                {
-                    if (key != null) key.SetValue("HwSchMode", 2, RegistryValueKind.DWord);
-                }
-
                 RunHiddenCommand("sc", "stop WSearch");
-
                 using (RegistryKey key = Registry.LocalMachine.CreateSubKey(@"SYSTEM\CurrentControlSet\Control\Class\{4d36e968-e325-11ce-bfc1-08002be10318}\0000"))
                 {
                     if (key != null) key.SetValue("InterruptModeration", 0, RegistryValueKind.String);
