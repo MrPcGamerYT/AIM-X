@@ -18,7 +18,7 @@ VersionInfoCopyright=Ã‚Â© 2026 Mr.Pc Gamer. All Rights Reserved.
 PrivilegesRequired=admin
 
 ; --- ICON FIX ---
-SetupIconFile=Optimizer\app_icon.ico 
+SetupIconFile=app_icon.ico 
 
 [Files]
 Source: "{#GetEnv('EXE_PATH')}"; DestDir: "{app}"; Flags: ignoreversion
