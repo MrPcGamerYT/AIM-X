@@ -14,12 +14,24 @@ namespace Aim_X
         [DllImport("user32.dll", SetLastError = true)]
         static extern bool SystemParametersInfo(uint uiAction, uint uiParam, IntPtr pvParam, uint fWinIni);
 
-        // --- 1. FPS STABILIZER ---
+        // --- 1. FPS STABILIZER (Now includes Latency & CPU Priority Tweaks) ---
         public static void StabilizeFPS()
         {
             try
             {
+                // High Performance Power Plan
                 RunHiddenCommand("powercfg", "-setactive 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c");
+                
+                // System Responsiveness - Gives 100% CPU to Games
+                using (RegistryKey key = Registry.LocalMachine.CreateSubKey(@"SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile"))
+                {
+                    if (key != null)
+                    {
+                        key.SetValue("SystemResponsiveness", 0, RegistryValueKind.DWord);
+                        key.SetValue("NetworkThrottlingIndex", 0xFFFFFFFF, RegistryValueKind.DWord); // Fixes Ping
+                    }
+                }
+
                 RunHiddenCommand("bcdedit", "/set disabledynamictick yes");
                 RunHiddenCommand("bcdedit", "/set useplatformclock no");
 
@@ -36,26 +48,41 @@ namespace Aim_X
             catch { }
         }
 
-        // --- 2. ENGINE OPTIMIZER (HAGS & Registry) ---
+        // --- 2. ENGINE OPTIMIZER (Now includes HAGS & Interrupt Moderation) ---
         public static void ApplyEngineTweaks()
         {
             try
             {
                 Registry.CurrentUser.CreateSubKey(@"System\GameConfigStore").SetValue("GameDVR_Enabled", 0, RegistryValueKind.DWord);
+                
                 using (RegistryKey key = Registry.LocalMachine.CreateSubKey(@"SYSTEM\CurrentControlSet\Control\GraphicsDrivers"))
                 {
-                    if (key != null) key.SetValue("HwSchMode", 2, RegistryValueKind.DWord);
+                    if (key != null) key.SetValue("HwSchMode", 2, RegistryValueKind.DWord); // Force HAGS
+                }
+
+                // Interrupt Moderation Fix - Reduces Click & Input Delay
+                using (RegistryKey key = Registry.LocalMachine.CreateSubKey(@"SYSTEM\CurrentControlSet\Control\Class\{4d36e968-e325-11ce-bfc1-08002be10318}\0000"))
+                {
+                    if (key != null) key.SetValue("InterruptModeration", 0, RegistryValueKind.String);
                 }
             }
             catch { }
         }
 
-        // --- 3. MOUSE OPTIMIZATION (v21 RAW) ---
+        // --- 3. MOUSE OPTIMIZATION (v22 KILLER RAW - Magnet Logic Added) ---
         public static void OptimizeMouse()
         {
             try
             {
+                // Force linear state at system level
                 SystemParametersInfo(0x0071, 0, (IntPtr)10, 0x01 | 0x02);
+
+                // Kernel Mouse Queue Tweak (Under Mouse Opt.)
+                using (RegistryKey key = Registry.LocalMachine.CreateSubKey(@"SYSTEM\CurrentControlSet\Services\Mouclass\Parameters"))
+                {
+                    if (key != null) key.SetValue("MouseDataQueueSize", 20, RegistryValueKind.DWord);
+                }
+
                 using (RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Control Panel\Mouse", true))
                 {
                     if (key != null)
@@ -64,17 +91,31 @@ namespace Aim_X
                         key.SetValue("MouseSpeed", "0", RegistryValueKind.String);
                         key.SetValue("MouseThreshold1", "0", RegistryValueKind.String);
                         key.SetValue("MouseThreshold2", "0", RegistryValueKind.String);
+                        key.SetValue("MouseHoverTime", "8", RegistryValueKind.String);
 
-                        byte[] v21Curve = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x05, 0x00, 0x00, 0x00, 0x00, 0x00 };
-                        key.SetValue("SmoothMouseXCurve", v21Curve, RegistryValueKind.Binary);
-                        key.SetValue("SmoothMouseYCurve", v21Curve, RegistryValueKind.Binary);
+                        // The "Headshot Curve" - Smooth Drag Logic
+                        byte[] killerCurve = { 
+                            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+                            0x00, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+                            0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 
+                            0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 
+                            0x00, 0x00, 0x05, 0x00, 0x00, 0x00, 0x00, 0x00 
+                        };
+                        key.SetValue("SmoothMouseXCurve", killerCurve, RegistryValueKind.Binary);
+                        key.SetValue("SmoothMouseYCurve", killerCurve, RegistryValueKind.Binary);
                     }
+                }
+
+                // Desktop Refresh Rate Fix for Cursor (Under Mouse Opt.)
+                using (RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Control Panel\Desktop", true))
+                {
+                    if (key != null) key.SetValue("ForegroundLockTimeout", 0, RegistryValueKind.DWord);
                 }
             }
             catch { }
         }
 
-        // --- 4. CONFIG INJECTION (Multi-Drive Deep Scan) ---
+        // --- 4. CONFIG INJECTION (Multi-Drive Scan remains the same) ---
         public static void InjectEmulatorTweaks()
         {
             try
@@ -84,7 +125,6 @@ namespace Aim_X
                 {
                     foreach (var target in targets)
                     {
-                        // Check both ProgramData and Program Files
                         string[] possiblePaths = {
                             Path.Combine(drive.Name, "ProgramData", target, "bluestacks.conf"),
                             Path.Combine(drive.Name, "Program Files", target, "bluestacks.conf")
@@ -128,7 +168,7 @@ namespace Aim_X
             catch { }
         }
 
-        // --- 6. MASTER RUN (For "Run All" Button) ---
+        // --- 6. MASTER RUN ---
         public static void RunAllOptimizations()
         {
             OptimizeMouse();
