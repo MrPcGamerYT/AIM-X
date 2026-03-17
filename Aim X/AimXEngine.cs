@@ -14,7 +14,6 @@ namespace Aim_X
         [DllImport("user32.dll", SetLastError = true)]
         static extern bool SystemParametersInfo(uint uiAction, uint uiParam, IntPtr pvParam, uint fWinIni);
 
-        // --- NEW: High-Precision Timer for Magnet Control ---
         [DllImport("ntdll.dll", EntryPoint = "NtSetTimerResolution")]
         public static extern void NtSetTimerResolution(uint DesiredResolution, bool SetResolution, out uint CurrentResolution);
 
@@ -44,11 +43,92 @@ namespace Aim_X
             catch { }
         }
 
+        // --- 1. MOUSE OPTIMIZATION (Magnet, USB Priority & HID) ---
+        public static void OptimizeMouse()
+        {
+            BackupUserSettings();
+            try
+            {
+                uint curRes;
+                NtSetTimerResolution(5000, true, out curRes);
+
+                SystemParametersInfo(0x0071, 0, (IntPtr)10, 0x01 | 0x02);
+                
+                using (RegistryKey key = Registry.LocalMachine.CreateSubKey(@"SYSTEM\CurrentControlSet\Control\PriorityControl"))
+                {
+                    if (key != null) key.SetValue("Win32PrioritySeparation", 38, RegistryValueKind.DWord);
+                }
+
+                using (RegistryKey key = Registry.LocalMachine.CreateSubKey(@"SYSTEM\CurrentControlSet\Services\Mouclass\Parameters"))
+                {
+                    if (key != null) 
+                    {
+                        key.SetValue("MouseDataQueueSize", 20, RegistryValueKind.DWord);
+                        key.SetValue("ThreadPriority", 31, RegistryValueKind.DWord);
+                    }
+                }
+
+                using (RegistryKey key = Registry.LocalMachine.OpenSubKey(@"SYSTEM\CurrentControlSet\Enum\USB", true))
+                {
+                    if (key != null)
+                    {
+                        foreach (string subkeyName in key.GetSubKeyNames())
+                        {
+                            try {
+                                using (RegistryKey subkey = key.OpenSubKey(subkeyName + @"\Device Parameters", true))
+                                {
+                                    if (subkey != null) subkey.SetValue("EnhancedPowerManagementEnabled", 0, RegistryValueKind.DWord);
+                                }
+                            } catch { }
+                        }
+                    }
+                }
+
+                using (RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Control Panel\Mouse", true))
+                {
+                    if (key != null)
+                    {
+                        key.SetValue("MouseSensitivity", "10", RegistryValueKind.String);
+                        key.SetValue("MouseSpeed", "0", RegistryValueKind.String);
+                        key.SetValue("MouseThreshold1", "0", RegistryValueKind.String);
+                        key.SetValue("MouseThreshold2", "0", RegistryValueKind.String);
+                        key.SetValue("MouseHoverTime", "8", RegistryValueKind.String);
+
+                        byte[] magnetCurve = { 
+                            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+                            0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 
+                            0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 
+                            0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 
+                            0x00, 0x00, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00 
+                        };
+                        key.SetValue("SmoothMouseXCurve", magnetCurve, RegistryValueKind.Binary);
+                        key.SetValue("SmoothMouseYCurve", magnetCurve, RegistryValueKind.Binary);
+                    }
+                }
+
+                using (RegistryKey key = Registry.LocalMachine.CreateSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\PrecisionTouchPad"))
+                {
+                    if (key != null) key.SetValue("CurvatureSetting", 0, RegistryValueKind.DWord);
+                }
+
+                using (RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Control Panel\Desktop", true))
+                {
+                    if (key != null) key.SetValue("ForegroundLockTimeout", 0, RegistryValueKind.DWord);
+                }
+            }
+            catch { }
+        }
+
+        // --- 2. FPS STABILIZER & CPU CORE UNPARKING ---
         public static void StabilizeFPS()
         {
             try
             {
+                // Unpark CPU Cores for maximum performance
+                RunHiddenCommand("powercfg", "-setacvalueindex scheme_current sub_processor cppm_set_all_cores_parking 100");
+                RunHiddenCommand("powercfg", "-setactive scheme_current");
                 RunHiddenCommand("powercfg", "-setactive 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c");
+
                 using (RegistryKey key = Registry.LocalMachine.CreateSubKey(@"SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile"))
                 {
                     if (key != null)
@@ -57,6 +137,7 @@ namespace Aim_X
                         key.SetValue("NetworkThrottlingIndex", 0xFFFFFFFF, RegistryValueKind.DWord);
                     }
                 }
+                
                 RunHiddenCommand("bcdedit", "/set disabledynamictick yes");
                 RunHiddenCommand("bcdedit", "/set useplatformclock no");
 
@@ -73,6 +154,7 @@ namespace Aim_X
             catch { }
         }
 
+        // --- 3. ENGINE TWEAKS ---
         public static void ApplyEngineTweaks()
         {
             try
@@ -90,61 +172,7 @@ namespace Aim_X
             catch { }
         }
 
-        // --- UPDATED: MOUSE OPTIMIZATION (With Magnet & Headshot Connector) ---
-        public static void OptimizeMouse()
-        {
-            BackupUserSettings();
-            try
-            {
-                // FORCE 0.5ms TIMER: Removes micro-stutters for 1:1 movement
-                uint curRes;
-                NtSetTimerResolution(5000, true, out curRes);
-
-                SystemParametersInfo(0x0071, 0, (IntPtr)10, 0x01 | 0x02);
-                
-                using (RegistryKey key = Registry.LocalMachine.CreateSubKey(@"SYSTEM\CurrentControlSet\Services\Mouclass\Parameters"))
-                {
-                    // Buffer tweak for "Sticky" aim feel
-                    if (key != null) key.SetValue("MouseDataQueueSize", 20, RegistryValueKind.DWord);
-                }
-
-                using (RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Control Panel\Mouse", true))
-                {
-                    if (key != null)
-                    {
-                        key.SetValue("MouseSensitivity", "10", RegistryValueKind.String);
-                        key.SetValue("MouseSpeed", "0", RegistryValueKind.String);
-                        key.SetValue("MouseThreshold1", "0", RegistryValueKind.String);
-                        key.SetValue("MouseThreshold2", "0", RegistryValueKind.String);
-                        key.SetValue("MouseHoverTime", "8", RegistryValueKind.String);
-
-                        // KILLER MAGNET CURVE: Removes acceleration deadzones
-                        byte[] magnetCurve = { 
-                            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-                            0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 
-                            0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 
-                            0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 
-                            0x00, 0x00, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00 
-                        };
-                        key.SetValue("SmoothMouseXCurve", magnetCurve, RegistryValueKind.Binary);
-                        key.SetValue("SmoothMouseYCurve", magnetCurve, RegistryValueKind.Binary);
-                    }
-                }
-
-                // LINEARITY TWEAK: Makes Y-Axis (Drag Up) perfectly straight
-                using (RegistryKey key = Registry.LocalMachine.CreateSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\PrecisionTouchPad"))
-                {
-                    if (key != null) key.SetValue("CurvatureSetting", 0, RegistryValueKind.DWord);
-                }
-
-                using (RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Control Panel\Desktop", true))
-                {
-                    if (key != null) key.SetValue("ForegroundLockTimeout", 0, RegistryValueKind.DWord);
-                }
-            }
-            catch { }
-        }
-
+        // --- 4. EMULATOR INJECTION ---
         public static void InjectEmulatorTweaks()
         {
             try
@@ -176,6 +204,7 @@ namespace Aim_X
             catch { }
         }
 
+        // --- 5. CLEANER ---
         public static void CleanSystem()
         {
             try
@@ -192,6 +221,7 @@ namespace Aim_X
             catch { }
         }
 
+        // --- 6. MASTER RUN ---
         public static void RunAllOptimizations()
         {
             OptimizeMouse();
@@ -201,6 +231,7 @@ namespace Aim_X
             CleanSystem();
         }
 
+        // --- 7. REVERT ---
         public static void RevertAllSettings()
         {
             if (!hasBackup) return;
