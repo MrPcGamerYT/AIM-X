@@ -33,7 +33,7 @@ jobs:
     - uses: microsoft/setup-msbuild@v2
     - uses: NuGet/setup-nuget@v1
 
-    # 🔥 BUILD USING .CSPROJ (IMPORTANT FIX)
+    # ✅ BUILD PROJECT (NO .SLN NEEDED)
     - name: Build Project
       shell: pwsh
       run: |
@@ -47,11 +47,11 @@ jobs:
         nuget restore $proj.FullName
         msbuild $proj.FullName /p:Configuration=Release
 
-    # Check build output
+    # ✅ FIXED OUTPUT CHECK
     - name: Check Output
       shell: pwsh
       run: |
-        if (!(Test-Path "AIM-X\bin\Release")) {
+        if (!(Test-Path "AIM-X\AIM-X\bin\Release")) {
           Write-Error "Build failed - no output folder"
           exit 1
         }
@@ -67,7 +67,7 @@ jobs:
       uses: softprops/action-gh-release@v2
       with:
         tag_name: ${{ env.TAG }}
-        name: AIM-X ${{ env.TAG }}
+        name: AIM X ${{ env.TAG }}
         files: setup_output/AIM-X-Setup.exe
         make_latest: true
       env:
