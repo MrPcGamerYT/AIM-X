@@ -17,7 +17,6 @@ namespace Aim_X
         [DllImport("ntdll.dll", EntryPoint = "NtSetTimerResolution")]
         public static extern void NtSetTimerResolution(uint DesiredResolution, bool SetResolution, out uint CurrentResolution);
 
-        private static string origSens, origSpeed, origThresh1, origThresh2;
         private static byte[] origXCurve, origYCurve;
         private static bool hasBackup = false;
 
@@ -30,10 +29,6 @@ namespace Aim_X
                 {
                     if (key != null)
                     {
-                        origSens = key.GetValue("MouseSensitivity", "10").ToString();
-                        origSpeed = key.GetValue("MouseSpeed", "1").ToString();
-                        origThresh1 = key.GetValue("MouseThreshold1", "6").ToString();
-                        origThresh2 = key.GetValue("MouseThreshold2", "10").ToString();
                         origXCurve = (byte[])key.GetValue("SmoothMouseXCurve");
                         origYCurve = (byte[])key.GetValue("SmoothMouseYCurve");
                         hasBackup = true;
@@ -43,36 +38,35 @@ namespace Aim_X
             catch { }
         }
 
-        // --- 1. HEADSHOT CONNECTOR (HID & Interrupt Tweaks) ---
+        // --- 1. MOUSE OPTIMIZATION (STRICT: NO SENSITIVITY CHANGES) ---
         public static void OptimizeMouse()
         {
             BackupUserSettings();
             try
             {
-                // FORCE 0.5ms SYSTEM TIMER
+                // Set Timer Resolution to 0.5ms for lowest input delay
                 uint curRes;
                 NtSetTimerResolution(5000, true, out curRes);
 
-                // Set Mouse Speed to 6/11 (Windows Standard for 1:1)
-                SystemParametersInfo(0x0071, 0, (IntPtr)10, 0x01 | 0x02);
+                // --- 🛡️ SENSITIVITY PROTECTION: SystemParametersInfo CALL REMOVED 🛡️ ---
                 
+                // Boost Win32 Priority for Foreground Input
                 using (RegistryKey key = Registry.LocalMachine.CreateSubKey(@"SYSTEM\CurrentControlSet\Control\PriorityControl"))
                 {
-                    // Advanced Win32 Priority for Foreground Input
                     if (key != null) key.SetValue("Win32PrioritySeparation", 38, RegistryValueKind.DWord);
                 }
 
+                // Optimize Mouse Interrupt Queue (HID Polling stability)
                 using (RegistryKey key = Registry.LocalMachine.CreateSubKey(@"SYSTEM\CurrentControlSet\Services\Mouclass\Parameters"))
                 {
                     if (key != null) 
                     {
-                        // Reduces input lag by making the data queue tighter
                         key.SetValue("MouseDataQueueSize", 25, RegistryValueKind.DWord);
                         key.SetValue("ThreadPriority", 31, RegistryValueKind.DWord); 
                     }
                 }
 
-                // HID INTERRUPT REFRESH (Prevents "floaty" aim)
+                // Disable USB Power Saving to stop mouse stuttering
                 using (RegistryKey key = Registry.LocalMachine.OpenSubKey(@"SYSTEM\CurrentControlSet\Enum\USB", true))
                 {
                     if (key != null)
@@ -85,7 +79,6 @@ namespace Aim_X
                                     if (subkey != null) 
                                     {
                                         subkey.SetValue("EnhancedPowerManagementEnabled", 0, RegistryValueKind.DWord);
-                                        // Selective Suspend off
                                         subkey.SetValue("SelectiveSuspendEnabled", 0, RegistryValueKind.DWord);
                                     }
                                 }
@@ -98,14 +91,11 @@ namespace Aim_X
                 {
                     if (key != null)
                     {
-                        key.SetValue("MouseSensitivity", "10", RegistryValueKind.String);
-                        key.SetValue("MouseSpeed", "0", RegistryValueKind.String);
-                        key.SetValue("MouseThreshold1", "0", RegistryValueKind.String);
-                        key.SetValue("MouseThreshold2", "0", RegistryValueKind.String);
+                        // --- 🛡️ SENSITIVITY PROTECTION: Registry Speed/Threshold keys REMOVED 🛡️ ---
+                        
                         key.SetValue("MouseHoverTime", "8", RegistryValueKind.String);
 
-                        // --- ULTIMATE HEADSHOT MAGNET CURVE ---
-                        // This curve is mathematically tuned to remove all Windows smoothing
+                        // APPLY MAGNET CURVE (Sharper precision, NO SPEED CHANGE)
                         byte[] magnetCurve = { 
                             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
                             0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 
@@ -118,7 +108,6 @@ namespace Aim_X
                     }
                 }
 
-                // LINEARITY FIX: Vertical "Drag Up" stability
                 using (RegistryKey key = Registry.LocalMachine.CreateSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\PrecisionTouchPad"))
                 {
                     if (key != null) key.SetValue("CurvatureSetting", 0, RegistryValueKind.DWord);
@@ -127,7 +116,7 @@ namespace Aim_X
             catch { }
         }
 
-        // --- 2. CPU CORE UNPARKING & FPS STABILIZER ---
+        // --- 2. CPU & FPS STABILIZER (Core Unparking) ---
         public static void StabilizeFPS()
         {
             try
@@ -167,18 +156,13 @@ namespace Aim_X
             try
             {
                 Registry.CurrentUser.CreateSubKey(@"System\GameConfigStore").SetValue("GameDVR_Enabled", 0, RegistryValueKind.DWord);
-                
-                // Low Latency Mode for Graphics
                 using (RegistryKey key = Registry.LocalMachine.CreateSubKey(@"SYSTEM\CurrentControlSet\Control\GraphicsDrivers"))
                 {
                     if (key != null) key.SetValue("HwSchMode", 2, RegistryValueKind.DWord);
                 }
 
-                // Disable "Search Indexing" during gaming for lower CPU spikes
                 RunHiddenCommand("sc", "stop WSearch");
 
-                // Disable Interrupt Moderation (CRITICAL FOR HEADSHOTS)
-                // This makes your hardware report to the OS instantly
                 using (RegistryKey key = Registry.LocalMachine.CreateSubKey(@"SYSTEM\CurrentControlSet\Control\Class\{4d36e968-e325-11ce-bfc1-08002be10318}\0000"))
                 {
                     if (key != null) key.SetValue("InterruptModeration", 0, RegistryValueKind.String);
@@ -187,7 +171,7 @@ namespace Aim_X
             catch { }
         }
 
-        // --- 4. EMULATOR PRECISION INJECTION ---
+        // --- 4. EMULATOR INJECTION ---
         public static void InjectEmulatorTweaks()
         {
             try
@@ -206,7 +190,6 @@ namespace Aim_X
                                 bool changed = false;
                                 for (int i = 0; i < lines.Count; i++)
                                 {
-                                    // Optimized sensitivities for "Drag Shot"
                                     if (lines[i].Contains("cfg_x_sensitivity")) { lines[i] = "bst.cfg_x_sensitivity=1.20"; changed = true; }
                                     if (lines[i].Contains("cfg_y_sensitivity")) { lines[i] = "bst.cfg_y_sensitivity=6.80"; changed = true; }
                                     if (lines[i].Contains("cfg_tweaks")) { lines[i] = "bst.cfg_tweaks=16450"; changed = true; }
@@ -254,11 +237,6 @@ namespace Aim_X
                 {
                     if (key != null)
                     {
-                        key.SetValue("MouseSensitivity", origSens, RegistryValueKind.String);
-                        key.SetValue("MouseSpeed", origSpeed, RegistryValueKind.String);
-                        key.SetValue("MouseThreshold1", origThresh1, RegistryValueKind.String);
-                        key.SetValue("MouseThreshold2", origThresh2, RegistryValueKind.String);
-                        
                         if (origXCurve != null) key.SetValue("SmoothMouseXCurve", origXCurve, RegistryValueKind.Binary);
                         else key.DeleteValue("SmoothMouseXCurve", false);
 
@@ -266,8 +244,7 @@ namespace Aim_X
                         else key.DeleteValue("SmoothMouseYCurve", false);
                     }
                 }
-                SystemParametersInfo(0x0071, 0, (IntPtr)int.Parse(origSens), 0x01 | 0x02);
-                RunHiddenCommand("sc", "start WSearch"); // Restore search service
+                RunHiddenCommand("sc", "start WSearch");
             }
             catch { }
         }
