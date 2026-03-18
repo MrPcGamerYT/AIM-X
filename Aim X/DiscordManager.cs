@@ -24,43 +24,12 @@ namespace Aim_X
 
             client.OnReady += (sender, e) =>
             {
-                Console.WriteLine($"[Discord] Aim X v1.1.2 Connected to: {e.User.Username}");
+                Console.WriteLine($"[Discord] Aim X Connected to: {e.User.Username}");
             };
 
             client.Initialize();
-            CheckForEmulators(); // Run initial check immediately
         }
 
-        public void CheckForEmulators()
-        {
-            if (client == null || !client.IsInitialized) return;
-
-            // List of emulator processes to detect
-            var emulators = new (string ProcessName, string CleanName)[]
-            {
-                ("HD-Player", "BlueStacks 5"),
-                ("MSIAppPlayer", "MSI App Player"),
-                ("LdVBoxHeadless", "LDPlayer"),
-                ("dnplayer", "LDPlayer"),
-                ("SmartGaGa", "SmartGaGa"),
-                ("aow_exe", "GameLoop"),
-                ("AndroidProcess", "Phoenix OS")
-            };
-
-            // Detect if any emulator is running
-            var runningEmu = emulators.FirstOrDefault(e => Process.GetProcessesByName(e.ProcessName).Any());
-
-            if (runningEmu.ProcessName != null)
-            {
-                // Real Status when playing
-                UpdateStatus("Aim X Engine v1.1.2", $"Boosting: {runningEmu.CleanName}");
-            }
-            else
-            {
-                // Real Status when idle
-                UpdateStatus("Aim X Engine v1.1.2", "Status: Idle (Ready)");
-            }
-        }
 
         public void UpdateStatus(string detail, string state)
         {
@@ -68,13 +37,13 @@ namespace Aim_X
 
             client.SetPresence(new RichPresence()
             {
-                Details = detail, // Line 1: Aim X Engine v1.1.2
+                Details = detail, // Line 1: 🎯 Aim X: High-performance system optimizer and gaming engine for low-end PCs.
                 State = state,   // Line 2: The Action
                 Timestamps = _elapsedTime,
                 Assets = new Assets()
                 {
                     LargeImageKey = "logo_main",
-                    LargeImageText = "Aim X Engine v1.1.2",
+                    LargeImageText = "🎯 Aim X: High-performance system optimizer and gaming engine for low-end PCs.",
                     SmallImageKey = "verified",
                     SmallImageText = "Verified Optimizer"
                 },
