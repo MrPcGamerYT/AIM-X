@@ -40,60 +40,9 @@ namespace Aim_X
             Program.trayIcon.MouseDoubleClick += (s, e) => { ShowForm(); };
         }
 
-        // --- BUTTON EVENTS WITH PRO AIM OPTIMIZER STATUS ---
-
-        private void btnOptimize_Click(object sender, EventArgs e)
-        {
-            UpdateStatus("OPTIMIZING HID & MOUSE...", Color.Lime);
-            // PRO STATUS UPDATE
-            discord.SetAimStatus("Optimizing: HID Polling", "Aim: Precision Boosted"); 
-
-            AimXEngine.OptimizeMouse();
-            UpdateStatus("MOUSE OPTIMIZED!", Color.Lime);
-        }
-
-        private void btnFPS_Click(object sender, EventArgs e)
-        {
-            UpdateStatus("UNPARKING CORES & BOOSTING FPS...", Color.Red);
-            // PRO STATUS UPDATE
-            discord.SetAimStatus("Boosting: Frame Latency", "Aim: Smooth Motion");
-
-            AimXEngine.StabilizeFPS();
-            UpdateStatus("FPS BOOST ACTIVE!", Color.Red);
-        }
-
-        private void btnInject_Click_1(object sender, EventArgs e)
-        {
-            UpdateStatus("INJECTING SENSITIVITY...", Color.Gold);
-            // PRO STATUS UPDATE
-            discord.SetAimStatus("Injecting: Sens Configs", "Aim: Tracking Optimized");
-
-            AimXEngine.InjectEmulatorTweaks();
-            UpdateStatus("CONFIGS INJECTED!", Color.Gold);
-        }
-
-        private void btnClean_Click_1(object sender, EventArgs e)
-        {
-            UpdateStatus("DELETING TRASH FILES...", Color.Cyan);
-            // PRO STATUS UPDATE
-            discord.SetAimStatus("Cleaning: System Junk", "Aim: Stabilized");
-
-            AimXEngine.CleanSystem();
-            UpdateStatus("SYSTEM CLEANED!", Color.Cyan);
-        }
-
-        private void btnEngine_Click_1(object sender, EventArgs e)
-        {
-            UpdateStatus("APPLYING REGISTRY TWEAKS...", Color.Magenta);
-            // PRO STATUS UPDATE
-            discord.SetAimStatus("Tweaking: Engine Registry", "Aim: Zero Input Lag");
-
-            AimXEngine.ApplyEngineTweaks();
-            UpdateStatus("ENGINE TWEAKED!", Color.Magenta);
-        }
-
-        // --- THE MASTER BOOSTER (ULTIMATE UPDATE) ---
-        private void guna2Button2_Click(object sender, EventArgs e)
+        // --- PUBLIC ACCESS FOR SYSTEM TRAY ---
+        // We make this public so Program.cs can call it from the right-click menu
+        public void RunUltimateBoost()
         {
             try
             {
@@ -121,7 +70,7 @@ namespace Aim_X
                 Thread.Sleep(300);
 
                 UpdateStatus("ULTIMATE BOOST COMPLETE!", Color.Lime);
-                // PRO STATUS UPDATE
+                // FINAL PRO STATUS UPDATE
                 discord.SetAimStatus("System: Fully Optimized", "Aim: Perfect Precision");
             }
             catch
@@ -131,9 +80,62 @@ namespace Aim_X
             }
         }
 
+        // --- BUTTON EVENTS ---
+
+        private void btnOptimize_Click(object sender, EventArgs e)
+        {
+            UpdateStatus("OPTIMIZING HID & MOUSE...", Color.Lime);
+            discord.SetAimStatus("Optimizing: HID Polling", "Aim: Precision Boosted"); 
+            AimXEngine.OptimizeMouse();
+            UpdateStatus("MOUSE OPTIMIZED!", Color.Lime);
+        }
+
+        private void btnFPS_Click(object sender, EventArgs e)
+        {
+            UpdateStatus("UNPARKING CORES & BOOSTING FPS...", Color.Red);
+            discord.SetAimStatus("Boosting: Frame Latency", "Aim: Smooth Motion");
+            AimXEngine.StabilizeFPS();
+            UpdateStatus("FPS BOOST ACTIVE!", Color.Red);
+        }
+
+        private void btnInject_Click_1(object sender, EventArgs e)
+        {
+            UpdateStatus("INJECTING SENSITIVITY...", Color.Gold);
+            discord.SetAimStatus("Injecting: Sens Configs", "Aim: Tracking Optimized");
+            AimXEngine.InjectEmulatorTweaks();
+            UpdateStatus("CONFIGS INJECTED!", Color.Gold);
+        }
+
+        private void btnClean_Click_1(object sender, EventArgs e)
+        {
+            UpdateStatus("DELETING TRASH FILES...", Color.Cyan);
+            discord.SetAimStatus("Cleaning: System Junk", "Aim: Stabilized");
+            AimXEngine.CleanSystem();
+            UpdateStatus("SYSTEM CLEANED!", Color.Cyan);
+        }
+
+        private void btnEngine_Click_1(object sender, EventArgs e)
+        {
+            UpdateStatus("APPLYING REGISTRY TWEAKS...", Color.Magenta);
+            discord.SetAimStatus("Tweaking: Engine Registry", "Aim: Zero Input Lag");
+            AimXEngine.ApplyEngineTweaks();
+            UpdateStatus("ENGINE TWEAKED!", Color.Magenta);
+        }
+
+        // --- THE MASTER BOOSTER TRIGGER ---
+        private void guna2Button2_Click(object sender, EventArgs e)
+        {
+            RunUltimateBoost(); // Simply call the public function
+        }
+
         // --- UI DRAWING & LOGIC (ALL FUNCTIONS PRESERVED) ---
         private void UpdateStatus(string message, Color statusColor)
         {
+            if (lblStatus.InvokeRequired)
+            {
+                lblStatus.Invoke(new Action(() => UpdateStatus(message, statusColor)));
+                return;
+            }
             lblStatus.Text = "STATUS: " + message;
             lblStatus.ForeColor = statusColor;
         }
