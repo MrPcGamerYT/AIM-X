@@ -1,6 +1,6 @@
 ﻿[Setup]
 AppName=AIM X
-AppVersion=1.1.7
+AppVersion=1.1.8
 DefaultDirName={autopf}\AIM X
 DefaultGroupName=AIM X
 OutputDir=setup_output
@@ -11,7 +11,7 @@ AppPublisher=Mr.Pc Gamer
 AppPublisherURL=https://github.com/MrPcGamerYT/AIM-X
 VersionInfoCompany=Mr.Pc Gamer
 VersionInfoDescription=Optimizer System Setup
-VersionInfoVersion=1.1.7
+VersionInfoVersion=1.1.8
 VersionInfoCopyright=Ã‚Â© 2026 Mr.Pc Gamer. All Rights Reserved.
 
 ; --- ADMIN RIGHTS ---
