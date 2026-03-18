@@ -39,7 +39,7 @@ namespace Aim_X
             catch { }
         }
 
-        // --- 2. MOUSE OPTIMIZATION (THE MAGNET) ---
+        // --- 2. MOUSE OPTIMIZATION (THE MAGNET + DEEP SYSTEM TWEAKS) ---
         public static void OptimizeMouse()
         {
             string[] emuNames = { "HD-Player", "LdVBoxHeadless", "dnplayer", "SmartGaGa", "aow_exe", "AndroidProcess" };
@@ -84,7 +84,13 @@ namespace Aim_X
                     }
                 }
 
-                // DISABLE USB POWER SAVING (Integrated directly here to avoid new functions)
+                // NEW: CSRSS PRIORITY BOOT (Makes the mouse cursor draw faster on screen)
+                using (RegistryKey key = Registry.LocalMachine.CreateSubKey(@"SOFTWARE\Microsoft\Windows NT\CurrentVersion\PriorityControl"))
+                {
+                    if (key != null) key.SetValue("Win32PrioritySeparation", 38, RegistryValueKind.DWord);
+                }
+
+                // DISABLE USB POWER SAVING (Instant wakeup for all USB HID devices)
                 using (RegistryKey usbKey = Registry.LocalMachine.OpenSubKey(@"SYSTEM\CurrentControlSet\Enum\USB", true))
                 {
                     if (usbKey != null)
@@ -104,7 +110,7 @@ namespace Aim_X
             catch { }
         }
 
-        // --- 3. STABILIZE FPS (Core Affinity & RAM Lock) ---
+        // --- 3. STABILIZE FPS ---
         public static void StabilizeFPS()
         {
             try
@@ -146,6 +152,7 @@ namespace Aim_X
             catch { }
         }
 
+        // --- 4. ENGINE TWEAKS (NOW WITH DPI SCALING FIX) ---
         public static void ApplyEngineTweaks()
         {
             try
@@ -153,6 +160,12 @@ namespace Aim_X
                 using (RegistryKey key = Registry.LocalMachine.CreateSubKey(@"SYSTEM\CurrentControlSet\Control\GraphicsDrivers"))
                 {
                     if (key != null) key.SetValue("HwSchMode", 2, RegistryValueKind.DWord);
+                }
+
+                // NEW: Disable High DPI scaling for smoother mouse movement
+                using (RegistryKey key = Registry.CurrentUser.CreateSubKey(@"Control Panel\Desktop"))
+                {
+                    if (key != null) key.SetValue("Win8DpiScaling", 0, RegistryValueKind.DWord);
                 }
 
                 Registry.CurrentUser.CreateSubKey(@"System\GameConfigStore").SetValue("GameDVR_Enabled", 0, RegistryValueKind.DWord);
