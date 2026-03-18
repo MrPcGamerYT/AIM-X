@@ -5,6 +5,7 @@ using System.Runtime.InteropServices;
 using System.Windows.Forms;
 using System.Security.Principal;
 using System.Threading;
+using System.Linq;
 
 namespace Aim_X
 {
@@ -15,7 +16,6 @@ namespace Aim_X
         [STAThread]
         static void Main()
         {
-            // 1. ADMIN CHECK
             if (!IsRunningAsAdmin())
             {
                 ProcessStartInfo proc = new ProcessStartInfo();
@@ -27,7 +27,6 @@ namespace Aim_X
                 return;
             }
 
-            // 2. PROCESS GUARD (Kill duplicates)
             string currentName = Process.GetCurrentProcess().ProcessName;
             Process[] duplicates = Process.GetProcessesByName(currentName);
             if (duplicates.Length > 1)
@@ -41,8 +40,6 @@ namespace Aim_X
                 }
             }
 
-            // 3. CRASH SAFETY HANDLERS (New)
-            // If the app crashes, try to revert mouse settings before dying
             Application.ThreadException += (s, e) => { AimXEngine.RevertAllSettings(); };
             AppDomain.CurrentDomain.ProcessExit += (s, e) => { AimXEngine.RevertAllSettings(); };
 
@@ -51,9 +48,7 @@ namespace Aim_X
 
             SetupTray();
             
-            // Initial Startup Optimization
-            AimXEngine.OptimizeMouse();
-
+            // Note: Full optimization will run once the Splash ends and MainPanel loads
             Application.Run(new SplashScreen());
         }
 
@@ -68,7 +63,6 @@ namespace Aim_X
         {
             try
             {
-                // 'icon' should be in your Project Resources
                 trayIcon.Icon = Properties.Resources.icon;
                 trayIcon.Visible = true;
                 trayIcon.Text = "AIM X - SUBSCRIBER EDITION";
@@ -76,18 +70,16 @@ namespace Aim_X
                 ContextMenuStrip menu = new ContextMenuStrip();
 
                 menu.Items.Add("Open Aim X", null, (s, e) => {
-                    bool formOpen = false;
-                    foreach (Form f in Application.OpenForms)
-                    {
-                        if (f is MainPanel) { f.Show(); f.WindowState = FormWindowState.Normal; f.BringToFront(); formOpen = true; }
-                    }
-                    // If MainPanel isn't loaded yet, you might need to show it here
+                    ShowMainPanel();
                 });
 
-                menu.Items.Add("Optimize Now", null, (s, e) => {
-                    AimXEngine.OptimizeMouse();
-                    trayIcon.ShowBalloonTip(2000, "Aim X", "Mouse Optimized Successfully!", ToolTipIcon.Info);
-                });
+                // --- THE ULTIMATE MASTER OPTIMIZER BUTTON ---
+                var masterOptimizeBtn = new ToolStripMenuItem("Optimize Now (Ultimate Boost)");
+                masterOptimizeBtn.Font = new Font(masterOptimizeBtn.Font, FontStyle.Bold);
+                masterOptimizeBtn.Click += (s, e) => {
+                    TriggerMasterBoost();
+                };
+                menu.Items.Add(masterOptimizeBtn);
 
                 menu.Items.Add("YouTube: MR.PC GAMER", null, (s, e) => {
                     Process.Start(new ProcessStartInfo("https://youtube.com/@MR.PC_GAMER_YT") { UseShellExecute = true });
@@ -105,6 +97,40 @@ namespace Aim_X
                 trayIcon.ContextMenuStrip = menu;
             }
             catch { trayIcon.Icon = SystemIcons.Shield; }
+        }
+
+        // Helper to find the MainPanel and run its "guna2Button2_Click" logic
+        private static void TriggerMasterBoost()
+        {
+            MainPanel main = Application.OpenForms.OfType<MainPanel>().FirstOrDefault();
+            
+            if (main != null)
+            {
+                // We call a public method on the MainPanel to run the boost
+                // This keeps Discord and UI Labels in sync
+                main.Invoke(new Action(() => main.RunUltimateBoost()));
+                trayIcon.ShowBalloonTip(3000, "Aim X Engine", "Ultimate Boost Applied Successfully!", ToolTipIcon.Info);
+            }
+            else
+            {
+                // If form isn't open, run silent engine-only optimization
+                AimXEngine.OptimizeMouse();
+                AimXEngine.ApplyEngineTweaks();
+                AimXEngine.StabilizeFPS();
+                AimXEngine.CleanSystem();
+                trayIcon.ShowBalloonTip(3000, "Aim X Engine", "System Optimized (Background Mode)", ToolTipIcon.Info);
+            }
+        }
+
+        private static void ShowMainPanel()
+        {
+            MainPanel main = Application.OpenForms.OfType<MainPanel>().FirstOrDefault();
+            if (main != null)
+            {
+                main.Show();
+                main.WindowState = FormWindowState.Normal;
+                main.BringToFront();
+            }
         }
     }
 }
