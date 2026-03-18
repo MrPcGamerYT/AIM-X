@@ -51,7 +51,7 @@ Aim X is built on the **.NET Framework** using a strictly controlled CI/CD pipel
 
 Stay updated with the latest emulator modding, system tweaks, and optimization guides.
 
-* **YouTube:** [MR.PC GAMER](https://youtube.com/@MrPcGamerYT) — *Subscribe for tutorials!*
+* **YouTube:** [MR.PC GAMER](https://youtube.com/@mr.pc_gamer_yt) — *Subscribe for tutorials!*
 * **GitHub:** [@MrPcGamerYT](https://github.com/MrPcGamerYT)
 
 ---
