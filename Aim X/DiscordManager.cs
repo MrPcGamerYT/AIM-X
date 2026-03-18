@@ -24,7 +24,7 @@ namespace Aim_X
 
             client.OnReady += (sender, e) =>
             {
-                Console.WriteLine($"[Discord] Aim X v21 Connected to: {e.User.Username}");
+                Console.WriteLine($"[Discord] Aim X v1.1.2 Connected to: {e.User.Username}");
             };
 
             client.Initialize();
