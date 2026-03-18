@@ -6,6 +6,7 @@ using System.Windows.Forms;
 using System.Security.Principal;
 using System.Threading;
 using System.Linq;
+using Microsoft.Win32; // REQUIRED for Shutdown detection
 
 namespace Aim_X
 {
@@ -16,6 +17,10 @@ namespace Aim_X
         [STAThread]
         static void Main()
         {
+            // --- EMERGENCY REVERT ON STARTUP ---
+            // If the PC crashed last time, this cleans the registry immediately
+            try { AimXEngine.RevertAllSettings(); } catch { }
+
             if (!IsRunningAsAdmin())
             {
                 ProcessStartInfo proc = new ProcessStartInfo();
@@ -27,6 +32,7 @@ namespace Aim_X
                 return;
             }
 
+            // Kill duplicates
             string currentName = Process.GetCurrentProcess().ProcessName;
             Process[] duplicates = Process.GetProcessesByName(currentName);
             if (duplicates.Length > 1)
@@ -40,15 +46,20 @@ namespace Aim_X
                 }
             }
 
+            // --- SHUTDOWN & CRASH HANDLERS ---
             Application.ThreadException += (s, e) => { AimXEngine.RevertAllSettings(); };
             AppDomain.CurrentDomain.ProcessExit += (s, e) => { AimXEngine.RevertAllSettings(); };
+            
+            // This catches when the user clicks "Shut Down" or "Restart" in Windows
+            SystemEvents.SessionEnding += (s, e) => { 
+                AimXEngine.RevertAllSettings(); 
+            };
 
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
 
             SetupTray();
             
-            // Note: Full optimization will run once the Splash ends and MainPanel loads
             Application.Run(new SplashScreen());
         }
 
@@ -69,16 +80,11 @@ namespace Aim_X
 
                 ContextMenuStrip menu = new ContextMenuStrip();
 
-                menu.Items.Add("Open Aim X", null, (s, e) => {
-                    ShowMainPanel();
-                });
+                menu.Items.Add("Open Aim X", null, (s, e) => { ShowMainPanel(); });
 
-                // --- THE ULTIMATE MASTER OPTIMIZER BUTTON ---
                 var masterOptimizeBtn = new ToolStripMenuItem("Optimize Now (Ultimate Boost)");
                 masterOptimizeBtn.Font = new Font(masterOptimizeBtn.Font, FontStyle.Bold);
-                masterOptimizeBtn.Click += (s, e) => {
-                    TriggerMasterBoost();
-                };
+                masterOptimizeBtn.Click += (s, e) => { TriggerMasterBoost(); };
                 menu.Items.Add(masterOptimizeBtn);
 
                 menu.Items.Add("YouTube: MR.PC GAMER", null, (s, e) => {
@@ -99,21 +105,16 @@ namespace Aim_X
             catch { trayIcon.Icon = SystemIcons.Shield; }
         }
 
-        // Helper to find the MainPanel and run its "guna2Button2_Click" logic
         private static void TriggerMasterBoost()
         {
             MainPanel main = Application.OpenForms.OfType<MainPanel>().FirstOrDefault();
-            
             if (main != null)
             {
-                // We call a public method on the MainPanel to run the boost
-                // This keeps Discord and UI Labels in sync
                 main.Invoke(new Action(() => main.RunUltimateBoost()));
                 trayIcon.ShowBalloonTip(3000, "Aim X Engine", "Ultimate Boost Applied Successfully!", ToolTipIcon.Info);
             }
             else
             {
-                // If form isn't open, run silent engine-only optimization
                 AimXEngine.OptimizeMouse();
                 AimXEngine.ApplyEngineTweaks();
                 AimXEngine.StabilizeFPS();
