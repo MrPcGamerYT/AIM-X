@@ -48,13 +48,15 @@ namespace Aim_X
             BackupUserSettings();
             try
             {
+                // Force 0.5ms System Timer for instant click registration
                 uint curRes;
-                NtSetTimerResolution(5000, true, out curRes); // 0.5ms Delay
+                NtSetTimerResolution(5000, true, out curRes); 
 
                 using (RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Control Panel\Mouse", true))
                 {
                     if (key != null)
                     {
+                        // THE MAGNET CURVE: Removes pixel-skipping for smooth vertical drag-shots
                         byte[] magnetCurve = { 
                             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
                             0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 
@@ -64,10 +66,15 @@ namespace Aim_X
                         };
                         key.SetValue("SmoothMouseXCurve", magnetCurve, RegistryValueKind.Binary);
                         key.SetValue("SmoothMouseYCurve", magnetCurve, RegistryValueKind.Binary);
+                        
+                        // Disable Windows Acceleration (Keeps User Sensitivity Slider same)
                         key.SetValue("MouseSpeed", "0", RegistryValueKind.String);
+                        key.SetValue("MouseThreshold1", "0", RegistryValueKind.String);
+                        key.SetValue("MouseThreshold2", "0", RegistryValueKind.String);
                     }
                 }
 
+                // HIGH-PRIORITY USB INPUT QUEUE
                 using (RegistryKey key = Registry.LocalMachine.CreateSubKey(@"SYSTEM\CurrentControlSet\Services\Mouclass\Parameters"))
                 {
                     if (key != null) 
@@ -76,24 +83,37 @@ namespace Aim_X
                         key.SetValue("ThreadPriority", 31, RegistryValueKind.DWord);
                     }
                 }
+
+                // DISABLE USB POWER SAVING (Integrated directly here to avoid new functions)
+                using (RegistryKey usbKey = Registry.LocalMachine.OpenSubKey(@"SYSTEM\CurrentControlSet\Enum\USB", true))
+                {
+                    if (usbKey != null)
+                    {
+                        foreach (string sub in usbKey.GetSubKeyNames())
+                        {
+                            try {
+                                using (RegistryKey devParam = usbKey.OpenSubKey(sub + @"\Device Parameters", true))
+                                {
+                                    if (devParam != null) devParam.SetValue("EnhancedPowerManagementEnabled", 0, RegistryValueKind.DWord);
+                                }
+                            } catch { }
+                        }
+                    }
+                }
             }
             catch { }
         }
 
-        // --- 3. STABILIZE FPS (Now Includes RAM Lock & Affinity) ---
+        // --- 3. STABILIZE FPS (Core Affinity & RAM Lock) ---
         public static void StabilizeFPS()
         {
             try
             {
-                // Core Parking & Power
                 RunHiddenCommand("powercfg", "-setacvalueindex scheme_current sub_processor cppm_set_all_cores_parking 100");
                 RunHiddenCommand("powercfg", "-setactive scheme_current");
-
-                // BCD Latency Fix
                 RunHiddenCommand("bcdedit", "/set disabledynamictick yes");
                 RunHiddenCommand("bcdedit", "/set useplatformclock no");
 
-                // Multimedia Registry Tweaks
                 using (RegistryKey key = Registry.LocalMachine.CreateSubKey(@"SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile"))
                 {
                     if (key != null)
@@ -103,7 +123,6 @@ namespace Aim_X
                     }
                 }
 
-                // Process Steering: Core Affinity & RAM Lock
                 string[] targets = { "HD-Player", "LdVBoxHeadless", "dnplayer", "SmartGaGa", "aow_exe", "AndroidProcess" };
                 foreach (var name in targets)
                 {
@@ -111,14 +130,14 @@ namespace Aim_X
                     {
                         try {
                             p.PriorityClass = ProcessPriorityClass.High;
-                            SetProcessWorkingSetSize(p.Handle, -1, -1); // RAM LOCK
+                            SetProcessWorkingSetSize(p.Handle, -1, -1); 
 
                             int coreCount = Environment.ProcessorCount;
                             if (coreCount > 1)
                             {
                                 long affinityMask = 0;
                                 for (int i = 1; i < coreCount; i++) affinityMask |= (1L << i);
-                                p.ProcessorAffinity = (IntPtr)affinityMask; // Skip Core 0
+                                p.ProcessorAffinity = (IntPtr)affinityMask;
                             }
                         } catch { }
                     }
@@ -127,12 +146,10 @@ namespace Aim_X
             catch { }
         }
 
-        // --- 4. APPLY ENGINE TWEAKS (GPU & Interrupts) ---
         public static void ApplyEngineTweaks()
         {
             try
             {
-                // GPU Scheduling
                 using (RegistryKey key = Registry.LocalMachine.CreateSubKey(@"SYSTEM\CurrentControlSet\Control\GraphicsDrivers"))
                 {
                     if (key != null) key.SetValue("HwSchMode", 2, RegistryValueKind.DWord);
@@ -149,7 +166,6 @@ namespace Aim_X
             catch { }
         }
 
-        // --- 5. CLEAN SYSTEM ---
         public static void CleanSystem()
         {
             try
@@ -166,7 +182,6 @@ namespace Aim_X
             catch { }
         }
 
-        // --- 6. EMULATOR INJECTION ---
         public static void InjectEmulatorTweaks()
         {
             try
@@ -195,7 +210,6 @@ namespace Aim_X
             catch { }
         }
 
-        // --- MASTER TRIGGER ---
         public static void RunAllOptimizations()
         {
             StabilizeFPS();
@@ -205,7 +219,6 @@ namespace Aim_X
             CleanSystem();
         }
 
-        // --- REVERT ALL SETTINGS ---
         public static void RevertAllSettings()
         {
             if (!hasBackup) return;
@@ -217,6 +230,7 @@ namespace Aim_X
                     {
                         if (origXCurve != null) key.SetValue("SmoothMouseXCurve", origXCurve, RegistryValueKind.Binary);
                         if (origYCurve != null) key.SetValue("SmoothMouseYCurve", origYCurve, RegistryValueKind.Binary);
+                        key.SetValue("MouseSpeed", "1", RegistryValueKind.String); 
                     }
                 }
                 RunHiddenCommand("sc", "start WSearch");
