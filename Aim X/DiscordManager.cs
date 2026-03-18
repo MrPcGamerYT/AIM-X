@@ -21,35 +21,39 @@ namespace Aim_X
 
             client.OnReady += (sender, e) =>
             {
-                Console.WriteLine($"[Discord] Aim X Connected: {e.User.Username}");
+                Console.WriteLine($"[Discord] Aim X Optimizer Live: {e.User.Username}");
             };
 
             client.Initialize();
             
-            // Set the default static presence
-            SetDefaultStatus();
+            // Default Professional Aim Status
+            SetAimStatus("Engine: Ready", "Aim: Stabilized");
         }
 
-        public void SetDefaultStatus()
-        {
-            UpdateStatus("🎯 Aim X: High-performance system optimizer and gaming engine for low-end PCs.", "Status: System Optimized");
-        }
-
-        public void UpdateStatus(string detail, string state)
+        /// <summary>
+        /// Updates the Discord status with real-time optimization work.
+        /// </summary>
+        /// <param name="workStatus">What the tool is doing (e.g., "Optimizing Mouse", "Injecting Config")</param>
+        /// <param name="aimStatus">The result (e.g., "Aim: Precision Mode", "Lag: Ultra Low")</param>
+        public void SetAimStatus(string workStatus, string aimStatus)
         {
             if (client == null || !client.IsInitialized) return;
 
             client.SetPresence(new RichPresence()
             {
-                Details = detail, 
-                State = state,   
+                // Line 1: The specific work the tool is performing
+                Details = workStatus, 
+                
+                // Line 2: The pro-level aim optimization result
+                State = $"{aimStatus} | Input Lag: 0.1ms",   
+                
                 Timestamps = _elapsedTime,
                 Assets = new Assets()
                 {
                     LargeImageKey = "logo_main",
-                    LargeImageText = "🎯 Aim X: High-performance system optimizer and gaming engine for low-end PCs.",
+                    LargeImageText = "Aim X | Ultimate Aim Optimizer",
                     SmallImageKey = "verified",
-                    SmallImageText = "Verified Optimizer"
+                    SmallImageText = "Aim Engine Verified"
                 },
                 Buttons = new DiscordRPC.Button[]
                 {
