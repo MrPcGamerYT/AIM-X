@@ -32,16 +32,17 @@ namespace Aim_X
             // 2. Initialize Discord Status on Start
             discord.Initialize();
 
+            // Safety Revert on Application Exit
             Application.ApplicationExit += (s, e) => {
                 AimXEngine.RevertAllSettings();
                 discord.Deinitialize(); 
             };
 
+            // Link Tray Icon Double Click
             Program.trayIcon.MouseDoubleClick += (s, e) => { ShowForm(); };
         }
 
-        // --- PUBLIC ACCESS FOR SYSTEM TRAY ---
-        // We make this public so Program.cs can call it from the right-click menu
+        // --- PUBLIC ACCESS FOR SYSTEM TRAY & SHUTDOWN SAFETY ---
         public void RunUltimateBoost()
         {
             try
@@ -70,6 +71,7 @@ namespace Aim_X
                 Thread.Sleep(300);
 
                 UpdateStatus("ULTIMATE BOOST COMPLETE!", Color.Lime);
+                
                 // FINAL PRO STATUS UPDATE
                 discord.SetAimStatus("System: Fully Optimized", "Aim: Perfect Precision");
             }
@@ -122,15 +124,15 @@ namespace Aim_X
             UpdateStatus("ENGINE TWEAKED!", Color.Magenta);
         }
 
-        // --- THE MASTER BOOSTER TRIGGER ---
         private void guna2Button2_Click(object sender, EventArgs e)
         {
-            RunUltimateBoost(); // Simply call the public function
+            RunUltimateBoost(); 
         }
 
-        // --- UI DRAWING & LOGIC (ALL FUNCTIONS PRESERVED) ---
+        // --- UI LOGIC & THREAD SAFETY ---
         private void UpdateStatus(string message, Color statusColor)
         {
+            // Thread safety: ensures the tray icon can update the UI without crashing
             if (lblStatus.InvokeRequired)
             {
                 lblStatus.Invoke(new Action(() => UpdateStatus(message, statusColor)));
@@ -184,6 +186,7 @@ namespace Aim_X
 
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
+            // If user clicks 'X', we just hide to tray.
             if (e.CloseReason == CloseReason.UserClosing)
             {
                 e.Cancel = true;
@@ -192,6 +195,7 @@ namespace Aim_X
             }
             else
             {
+                // If Windows is shutting down, Revert Settings IMMEDIATELY.
                 AimXEngine.RevertAllSettings();
                 discord.Deinitialize();
             }
