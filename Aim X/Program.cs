@@ -6,7 +6,7 @@ using System.Windows.Forms;
 using System.Security.Principal;
 using System.Threading;
 using System.Linq;
-using Microsoft.Win32; // Required for Shutdown/SessionEnding events
+using Microsoft.Win32;
 
 namespace Aim_X
 {
@@ -18,7 +18,7 @@ namespace Aim_X
         static void Main()
         {
             // --- 1. EMERGENCY REVERT ON STARTUP ---
-            // If the PC crashed or shut down improperly, this cleans the registry immediately
+            // This is now "Same to Same" but works with the file-based backup fix
             try { AimXEngine.RevertAllSettings(); } catch { }
 
             // Admin Check
@@ -48,11 +48,7 @@ namespace Aim_X
             }
 
             // --- 2. GLOBAL EXIT & SHUTDOWN HANDLERS ---
-            
-            // Catches unhandled crashes
             Application.ThreadException += (s, e) => { AimXEngine.RevertAllSettings(); };
-            
-            // Catches normal application exits
             AppDomain.CurrentDomain.ProcessExit += (s, e) => { AimXEngine.RevertAllSettings(); };
 
             // Catches Windows Shut Down or Restart
@@ -80,6 +76,7 @@ namespace Aim_X
         {
             try
             {
+                // Note: Ensure your icon is named 'icon' in Resources
                 trayIcon.Icon = Properties.Resources.icon;
                 trayIcon.Visible = true;
                 trayIcon.Text = "AIM X - SUBSCRIBER EDITION";
