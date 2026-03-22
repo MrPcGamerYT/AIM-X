@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Linq;
 using System.Diagnostics;
@@ -17,22 +17,32 @@ namespace Aim_X
         [DllImport("kernel32.dll")]
         static extern bool SetProcessWorkingSetSize(IntPtr proc, int min, int max);
 
-        private static byte[] origXCurve, origYCurve;
-        private static bool hasBackup = false;
+        // This replaces the "private static byte[]" variables to make them crash-proof
+        private static string backupFile = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "AimX_Backup.dat");
 
-        // --- 1. BACKUP SYSTEM ---
+        // --- 1. BACKUP SYSTEM (Now saves to Disk) ---
         private static void BackupUserSettings()
         {
-            if (hasBackup) return;
+            if (File.Exists(backupFile)) return; // Already backed up
             try
             {
                 using (RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Control Panel\Mouse", false))
                 {
                     if (key != null)
                     {
-                        origXCurve = (byte[])key.GetValue("SmoothMouseXCurve");
-                        origYCurve = (byte[])key.GetValue("SmoothMouseYCurve");
-                        hasBackup = true;
+                        byte[] x = (byte[])key.GetValue("SmoothMouseXCurve");
+                        byte[] y = (byte[])key.GetValue("SmoothMouseYCurve");
+                        string speed = key.GetValue("MouseSpeed").ToString();
+
+                        // Save the real settings to a physical file
+                        using (BinaryWriter writer = new BinaryWriter(File.Open(backupFile, FileMode.Create)))
+                        {
+                            writer.Write(x.Length);
+                            writer.Write(x);
+                            writer.Write(y.Length);
+                            writer.Write(y);
+                            writer.Write(speed);
+                        }
                     }
                 }
             }
@@ -236,20 +246,38 @@ namespace Aim_X
             CleanSystem();
         }
 
+        // --- 5. REVERT ALL SETTINGS (FIXED) ---
         public static void RevertAllSettings()
         {
-            if (!hasBackup) return;
+            if (!File.Exists(backupFile)) return;
             try
             {
+                byte[] x, y;
+                string speed;
+
+                // Load the backup from the disk
+                using (BinaryReader reader = new BinaryReader(File.Open(backupFile, FileMode.Open)))
+                {
+                    int xLen = reader.ReadInt32();
+                    x = reader.ReadBytes(xLen);
+                    int yLen = reader.ReadInt32();
+                    y = reader.ReadBytes(yLen);
+                    speed = reader.ReadString();
+                }
+
                 using (RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Control Panel\Mouse", true))
                 {
                     if (key != null)
                     {
-                        if (origXCurve != null) key.SetValue("SmoothMouseXCurve", origXCurve, RegistryValueKind.Binary);
-                        if (origYCurve != null) key.SetValue("SmoothMouseYCurve", origYCurve, RegistryValueKind.Binary);
-                        key.SetValue("MouseSpeed", "1", RegistryValueKind.String);
+                        key.SetValue("SmoothMouseXCurve", x, RegistryValueKind.Binary);
+                        key.SetValue("SmoothMouseYCurve", y, RegistryValueKind.Binary);
+                        key.SetValue("MouseSpeed", speed, RegistryValueKind.String);
+                        key.SetValue("MouseThreshold1", "6", RegistryValueKind.String);
+                        key.SetValue("MouseThreshold2", "10", RegistryValueKind.String);
                     }
                 }
+                
+                File.Delete(backupFile); // Remove file once restored
                 RunHiddenCommand("sc", "start WSearch");
             }
             catch { }
