@@ -210,7 +210,7 @@ namespace Aim_X
         }
 
         private void guna2ImageButton1_Click(object sender, EventArgs e) => Process.Start(new ProcessStartInfo { FileName = "http://www.youtube.com/@MR.PC_GAMER_YT", UseShellExecute = true });
-        private void guna2ImageButton2_Click(object sender, EventArgs e) => Process.Start(new ProcessStartInfo { FileName = "https://discord.gg/XbqcMzwfQQ", UseShellExecute = true });
+        private void guna2ImageButton2_Click(object sender, EventArgs e) => Process.Start(new ProcessStartInfo { FileName = "https://discord.gg/5qkKPRZkWa", UseShellExecute = true });
 
         protected override void WndProc(ref Message m)
         {
