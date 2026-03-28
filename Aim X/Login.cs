@@ -11,6 +11,7 @@ using System.Linq;
 
 namespace AppSystem_Utility
 {
+    // The "partial" keyword is critical here to link with Login.Designer.cs
     public partial class Login : Form
     {
         private const string CryptKey = "9X_Aim_Secure_77_Alpha"; 
@@ -34,11 +35,13 @@ namespace AppSystem_Utility
             RunSecurityShield();
 
             InitializeComponent();
+            
             this.DoubleBuffered = true;
             this.FormBorderStyle = FormBorderStyle.None;
             this.StartPosition = FormStartPosition.CenterScreen;
             
-            SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer, true);
+            // UI Performance Tweaks
+            this.SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer, true);
 
             LoadEncryptedState();
             StartValidation();
@@ -47,23 +50,25 @@ namespace AppSystem_Utility
         // --- 1. THE SECURITY SHIELD (Anti-Crack) ---
         private void RunSecurityShield()
         {
-            // Check for basic Debuggers
-            if (IsDebuggerPresent()) Environment.Exit(0);
-
-            bool isDebuggerPresent = false;
-            CheckRemoteDebuggerPresent(Process.GetCurrentProcess().Handle, ref isDebuggerPresent);
-            if (isDebuggerPresent) Environment.Exit(0);
-
-            // Blacklisted Programs (Crack tools)
-            string[] blacklist = { "dnspy", "x64dbg", "ollydbg", "wireshark", "fiddler", "httpdebugger", "de4dot", "processhacker" };
-            foreach (var process in Process.GetProcesses())
+            try 
             {
-                if (blacklist.Any(b => process.ProcessName.ToLower().Contains(b)))
+                if (IsDebuggerPresent()) Environment.Exit(0);
+
+                bool isDebuggerPresent = false;
+                CheckRemoteDebuggerPresent(Process.GetCurrentProcess().Handle, ref isDebuggerPresent);
+                if (isDebuggerPresent) Environment.Exit(0);
+
+                string[] blacklist = { "dnspy", "x64dbg", "ollydbg", "wireshark", "fiddler", "httpdebugger", "de4dot", "processhacker" };
+                foreach (var process in Process.GetProcesses())
                 {
-                    process.Kill(); // Kill the crack tool
-                    Environment.Exit(0); // Close our app
+                    if (blacklist.Any(b => process.ProcessName.ToLower().Contains(b)))
+                    {
+                        try { process.Kill(); } catch { }
+                        Environment.Exit(0);
+                    }
                 }
             }
+            catch { }
         }
 
         // --- 2. ENCRYPTION ENGINE ---
@@ -92,15 +97,19 @@ namespace AppSystem_Utility
 
         private void LoadEncryptedState()
         {
-            string savedUser = Decrypt(Properties.Settings.Default.Username);
-            string savedPass = Decrypt(Properties.Settings.Default.Password);
-
-            if (!string.IsNullOrEmpty(savedUser) && !string.IsNullOrEmpty(savedPass))
+            try 
             {
-                user.Text = savedUser;
-                pass.Text = savedPass;
-                checkBox1.Checked = true;
+                string savedUser = Decrypt(Properties.Settings.Default.Username);
+                string savedPass = Decrypt(Properties.Settings.Default.Password);
+
+                if (!string.IsNullOrEmpty(savedUser) && !string.IsNullOrEmpty(savedPass))
+                {
+                    user.Text = savedUser;
+                    pass.Text = savedPass;
+                    checkBox1.Checked = true;
+                }
             }
+            catch { }
         }
 
         private async void StartValidation()
@@ -134,8 +143,6 @@ namespace AppSystem_Utility
             }
 
             status.Text = "Authenticating...";
-            
-            // Re-check security during login attempt
             RunSecurityShield();
 
             await Task.Run(() => ServiceProvider.login(user.Text, pass.Text));
@@ -192,10 +199,13 @@ namespace AppSystem_Utility
         {
             GraphicsPath path = new GraphicsPath();
             float d = r * 2f;
-            path.AddArc(rect.X, rect.Y, d, d, 180, 90);
-            path.AddArc(rect.Right - d, rect.Y, d, d, 270, 90);
-            path.AddArc(rect.Right - d, rect.Bottom - d, d, d, 0, 90);
-            path.AddArc(rect.X, rect.Bottom - d, d, d, 90, 90);
+            if (d > 0)
+            {
+                path.AddArc(rect.X, rect.Y, d, d, 180, 90);
+                path.AddArc(rect.Right - d, rect.Y, d, d, 270, 90);
+                path.AddArc(rect.Right - d, rect.Bottom - d, d, d, 0, 90);
+                path.AddArc(rect.X, rect.Bottom - d, d, d, 90, 90);
+            }
             path.CloseFigure();
             return path;
         }
