@@ -8,70 +8,91 @@ using System.Windows.Forms;
 using System.Text;
 using System.Runtime.InteropServices;
 using System.Linq;
+using System.Management; // Add reference: System.Management
 
-namespace AppSystem_Utility
+namespace Aim_X
 {
-    // The "partial" keyword is critical here to link with Login.Designer.cs
     public partial class Login : Form
     {
-        private const string CryptKey = "9X_Aim_Secure_77_Alpha"; 
+        private const string CryptKey = "9X_Aim_Secure_77_Alpha";
 
-        private static api ServiceProvider = new api(
+        private static api KeyAuthApp = new api(
             name: "Aim X",
             ownerid: "P7SA5qAcgj",
             version: "1.0"
         );
 
-        // --- ANTI-DEBUG NATIVE IMPORTS ---
+        // --- ADVANCED NATIVE SECURITY IMPORTS ---
         [DllImport("kernel32.dll", SetLastError = true, ExactSpelling = true)]
         static extern bool IsDebuggerPresent();
 
         [DllImport("kernel32.dll", SetLastError = true, ExactSpelling = true)]
         static extern bool CheckRemoteDebuggerPresent(IntPtr hProcess, ref bool isDebuggerPresent);
 
+        [DllImport("kernel32.dll", CharSet = CharSet.Auto)]
+        static extern IntPtr GetModuleHandle(string lpModuleName);
+
         public Login()
         {
-            // Execute Security Check BEFORE anything else
-            RunSecurityShield();
+            // 🔥 Stage 1: Absolute Stealth Check
+            ApplyExtremeSecurity();
 
             InitializeComponent();
-            
+
             this.DoubleBuffered = true;
             this.FormBorderStyle = FormBorderStyle.None;
             this.StartPosition = FormStartPosition.CenterScreen;
-            
-            // UI Performance Tweaks
-            this.SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer, true);
 
-            LoadEncryptedState();
-            StartValidation();
+            LoadSavedCredentials();
+            InitKeyAuth();
         }
 
-        // --- 1. THE SECURITY SHIELD (Anti-Crack) ---
-        private void RunSecurityShield()
+        private void ApplyExtremeSecurity()
         {
-            try 
+            // 1. Anti-Debugger Check
+            if (IsDebuggerPresent()) Environment.Exit(0);
+
+            bool isDebuggerPresent = false;
+            CheckRemoteDebuggerPresent(Process.GetCurrentProcess().Handle, ref isDebuggerPresent);
+            if (isDebuggerPresent) Environment.Exit(0);
+
+            // 2. Anti-VM / Anti-Sandbox Check
+            if (IsVirtualMachine()) Environment.Exit(0);
+
+            // 3. Blacklist Process Killer
+            string[] blacklist = { "dnspy", "x64dbg", "ollydbg", "wireshark", "fiddler", "httpdebugger", "processhacker", "de4dot", "detectiteasy" };
+            foreach (var process in Process.GetProcesses())
             {
-                if (IsDebuggerPresent()) Environment.Exit(0);
-
-                bool isDebuggerPresent = false;
-                CheckRemoteDebuggerPresent(Process.GetCurrentProcess().Handle, ref isDebuggerPresent);
-                if (isDebuggerPresent) Environment.Exit(0);
-
-                string[] blacklist = { "dnspy", "x64dbg", "ollydbg", "wireshark", "fiddler", "httpdebugger", "de4dot", "processhacker" };
-                foreach (var process in Process.GetProcesses())
+                if (blacklist.Any(b => process.ProcessName.ToLower().Contains(b)))
                 {
-                    if (blacklist.Any(b => process.ProcessName.ToLower().Contains(b)))
+                    try { process.Kill(); } catch { }
+                    Environment.Exit(0);
+                }
+            }
+        }
+
+        private bool IsVirtualMachine()
+        {
+            using (var searcher = new ManagementObjectSearcher("Select * from Win32_ComputerSystem"))
+            {
+                using (var items = searcher.Get())
+                {
+                    foreach (var item in items)
                     {
-                        try { process.Kill(); } catch { }
-                        Environment.Exit(0);
+                        string manufacturer = item["Manufacturer"].ToString().ToLower();
+                        if ((manufacturer == "microsoft corporation" && item["Model"].ToString().ToUpperInvariant().Contains("VIRTUAL"))
+                            || manufacturer.Contains("vmware")
+                            || item["Model"].ToString().ToLower().Contains("virtualbox"))
+                        {
+                            return true;
+                        }
                     }
                 }
             }
-            catch { }
+            return false;
         }
 
-        // --- 2. ENCRYPTION ENGINE ---
+        // --- SECURE DATA HANDLING ---
         private string Encrypt(string text)
         {
             if (string.IsNullOrEmpty(text)) return string.Empty;
@@ -95,14 +116,14 @@ namespace AppSystem_Utility
             catch { return string.Empty; }
         }
 
-        private void LoadEncryptedState()
+        private void LoadSavedCredentials()
         {
-            try 
+            try
             {
                 string savedUser = Decrypt(Properties.Settings.Default.Username);
                 string savedPass = Decrypt(Properties.Settings.Default.Password);
 
-                if (!string.IsNullOrEmpty(savedUser) && !string.IsNullOrEmpty(savedPass))
+                if (!string.IsNullOrEmpty(savedUser))
                 {
                     user.Text = savedUser;
                     pass.Text = savedPass;
@@ -112,109 +133,94 @@ namespace AppSystem_Utility
             catch { }
         }
 
-        private async void StartValidation()
+        private async void InitKeyAuth()
         {
-            status.Text = "System: Protected Mode";
-            await Task.Run(() => ServiceProvider.init());
+            status.Text = "Status: Encrypting Tunnel...";
+            await Task.Run(() => KeyAuthApp.init());
 
-            if (!ServiceProvider.response.success)
+            if (!KeyAuthApp.response.success)
             {
-                status.Text = "Auth Error: Contact Support";
+                status.Text = "Security Error: Blocked";
                 return;
             }
 
-            status.Text = "System Secure.";
-
-            if (checkBox1.Checked && !string.IsNullOrWhiteSpace(user.Text))
-                await ExecuteAuth();
+            status.Text = "Status: Protected.";
+            if (checkBox1.Checked && !string.IsNullOrEmpty(user.Text)) await AttemptLogin();
         }
 
-        private async void guna2TileButton1_Click(object sender, EventArgs e)
-        {
-            await ExecuteAuth();
-        }
+        private async void guna2TileButton1_Click(object sender, EventArgs e) => await AttemptLogin();
 
-        private async Task ExecuteAuth()
+        private async Task AttemptLogin()
         {
-            if (string.IsNullOrWhiteSpace(user.Text) || string.IsNullOrWhiteSpace(pass.Text))
-            {
-                status.Text = "Input Required.";
-                return;
-            }
+            if (string.IsNullOrWhiteSpace(user.Text) || string.IsNullOrWhiteSpace(pass.Text)) return;
 
             status.Text = "Authenticating...";
-            RunSecurityShield();
+            ApplyExtremeSecurity(); // Re-check before sending data
 
-            await Task.Run(() => ServiceProvider.login(user.Text, pass.Text));
+            await Task.Run(() => KeyAuthApp.login(user.Text, pass.Text));
 
-            if (ServiceProvider.response.success)
+            if (KeyAuthApp.response.success)
             {
-                status.Text = "Success!";
-                SaveEncryptedData(checkBox1.Checked);
+                if (checkBox1.Checked)
+                {
+                    Properties.Settings.Default.Username = Encrypt(user.Text);
+                    Properties.Settings.Default.Password = Encrypt(pass.Text);
+                }
+                else
+                {
+                    Properties.Settings.Default.Username = "";
+                    Properties.Settings.Default.Password = "";
+                }
+                Properties.Settings.Default.Save();
+
                 this.DialogResult = DialogResult.OK;
                 this.Close();
             }
-            else
-            {
-                status.Text = "Status: " + ServiceProvider.response.message;
-            }
+            else status.Text = "Denied: " + KeyAuthApp.response.message;
         }
 
-        private void SaveEncryptedData(bool remember)
-        {
-            if (remember)
-            {
-                Properties.Settings.Default.Username = Encrypt(user.Text);
-                Properties.Settings.Default.Password = Encrypt(pass.Text);
-            }
-            else
-            {
-                Properties.Settings.Default.Username = string.Empty;
-                Properties.Settings.Default.Password = string.Empty;
-            }
-            Properties.Settings.Default.Save();
-        }
-
-        // --- UI & RENDERING ---
+        // --- UI DRAWING (SAME AS YOUR CUSTOM THEME) ---
         protected override void OnPaint(PaintEventArgs e)
         {
-            base.OnPaint(e);
             Graphics g = e.Graphics;
-            g.SmoothingMode = SmoothingMode.AntiAlias;
-
-            int radius = 25;
-            using (GraphicsPath path = GetRoundedPath(this.ClientRectangle, radius))
+            g.SmoothingMode = SmoothingMode.HighQuality;
+            using (GraphicsPath path = GetRoundedPath(this.ClientRectangle, 25))
             {
                 this.Region = new Region(path);
-                using (LinearGradientBrush b = new LinearGradientBrush(this.ClientRectangle, Color.FromArgb(45, 0, 0), Color.FromArgb(15, 15, 15), 90f))
+                using (LinearGradientBrush brush = new LinearGradientBrush(this.ClientRectangle, Color.FromArgb(45, 0, 0), Color.FromArgb(10, 10, 10), 90f))
                 {
-                    g.FillPath(b, path);
+                    g.FillPath(brush, path);
                 }
-                using (Pen p = new Pen(Color.Red, 2f))
-                    g.DrawPath(p, path);
+                using (Pen pen = new Pen(Color.Red, 2f)) g.DrawPath(pen, path);
             }
         }
 
-        private GraphicsPath GetRoundedPath(Rectangle rect, int r)
+        private GraphicsPath GetRoundedPath(Rectangle rect, int radius)
         {
             GraphicsPath path = new GraphicsPath();
-            float d = r * 2f;
-            if (d > 0)
-            {
-                path.AddArc(rect.X, rect.Y, d, d, 180, 90);
-                path.AddArc(rect.Right - d, rect.Y, d, d, 270, 90);
-                path.AddArc(rect.Right - d, rect.Bottom - d, d, d, 0, 90);
-                path.AddArc(rect.X, rect.Bottom - d, d, d, 90, 90);
-            }
+            int d = radius * 2;
+            path.AddArc(rect.X, rect.Y, d, d, 180, 90);
+            path.AddArc(rect.Right - d, rect.Y, d, d, 270, 90);
+            path.AddArc(rect.Right - d, rect.Bottom - d, d, d, 0, 90);
+            path.AddArc(rect.X, rect.Bottom - d, d, d, 90, 90);
             path.CloseFigure();
             return path;
         }
 
-        private void LaunchPortal(string url)
+        private void checkBox1_CheckedChanged(object sender, EventArgs e)
         {
-            try { Process.Start(new ProcessStartInfo(url) { UseShellExecute = true }); } catch { }
+            // Clear credentials if unchecked
+            if (!checkBox1.Checked)
+            {
+                user.Clear();
+                pass.Clear();
+                Properties.Settings.Default.Username = "";
+                Properties.Settings.Default.Password = "";
+                Properties.Settings.Default.Save();
+            }
         }
 
+        private void LaunchPortal(string url) => Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
         private void guna2ImageButton1_Click(object sender, EventArgs e) => LaunchPortal("http://www.youtube.com/@MR.PC_GAMER_YT");
         private void guna2ImageButton2_Click(object sender, EventArgs e) => LaunchPortal("https://discord.gg/5qkKPRZkWa");
     }
