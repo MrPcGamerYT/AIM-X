@@ -17,8 +17,6 @@ namespace Aim_X
         [STAThread]
         static void Main()
         {
-            // --- 1. EMERGENCY REVERT ON STARTUP ---
-            // This is now "Same to Same" but works with the file-based backup fix
             try { AimXEngine.RevertAllSettings(); } catch { }
 
             // Admin Check
@@ -33,7 +31,7 @@ namespace Aim_X
                 return;
             }
 
-            // Prevent Multiple Instances & Clean Duplicates
+            // Prevent Multiple Instances
             string currentName = Process.GetCurrentProcess().ProcessName;
             Process[] duplicates = Process.GetProcessesByName(currentName);
             if (duplicates.Length > 1)
@@ -47,11 +45,10 @@ namespace Aim_X
                 }
             }
 
-            // --- 2. GLOBAL EXIT & SHUTDOWN HANDLERS ---
+            // Global handlers
             Application.ThreadException += (s, e) => { AimXEngine.RevertAllSettings(); };
             AppDomain.CurrentDomain.ProcessExit += (s, e) => { AimXEngine.RevertAllSettings(); };
 
-            // Catches Windows Shut Down or Restart
             SystemEvents.SessionEnding += (s, e) => {
                 AimXEngine.RevertAllSettings();
             };
@@ -60,9 +57,21 @@ namespace Aim_X
             Application.SetCompatibleTextRenderingDefault(false);
 
             SetupTray();
-            
-            // Start the application
-            Application.Run(new SplashScreen());
+
+            // 🔐 STEP 1: LOGIN
+            Login login = new Login();
+
+            if (login.ShowDialog() != DialogResult.OK)
+                return; // exit if failed
+
+            // 🚀 STEP 2: SPLASH (blocking)
+            using (SplashScreen splash = new SplashScreen())
+            {
+                splash.ShowDialog();
+            }
+
+            // 🎯 STEP 3: MAIN PANEL (main loop)
+            Application.Run(new MainPanel());
         }
 
         private static bool IsRunningAsAdmin()

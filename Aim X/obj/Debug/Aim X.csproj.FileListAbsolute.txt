@@ -1,0 +1,17 @@
+C:\Users\GamerzOS\Downloads\AIM-X-main\AIM-X-main\Aim X\bin\Debug\Aim X.exe.config
+C:\Users\GamerzOS\Downloads\AIM-X-main\AIM-X-main\Aim X\bin\Debug\Aim X.exe
+C:\Users\GamerzOS\Downloads\AIM-X-main\AIM-X-main\Aim X\bin\Debug\Aim X.pdb
+C:\Users\GamerzOS\Downloads\AIM-X-main\AIM-X-main\Aim X\bin\Debug\DiscordRPC.xml
+C:\Users\GamerzOS\Downloads\AIM-X-main\AIM-X-main\Aim X\bin\Debug\Newtonsoft.Json.xml
+C:\Users\GamerzOS\Downloads\AIM-X-main\AIM-X-main\Aim X\obj\Debug\Aim X.csproj.AssemblyReference.cache
+C:\Users\GamerzOS\Downloads\AIM-X-main\AIM-X-main\Aim X\obj\Debug\Aim_X.Login.resources
+C:\Users\GamerzOS\Downloads\AIM-X-main\AIM-X-main\Aim X\obj\Debug\Aim_X.MainPanel.resources
+C:\Users\GamerzOS\Downloads\AIM-X-main\AIM-X-main\Aim X\obj\Debug\Aim_X.Properties.Resources.resources
+C:\Users\GamerzOS\Downloads\AIM-X-main\AIM-X-main\Aim X\obj\Debug\Aim_X.SplashScreen.resources
+C:\Users\GamerzOS\Downloads\AIM-X-main\AIM-X-main\Aim X\obj\Debug\Aim X.csproj.GenerateResource.cache
+C:\Users\GamerzOS\Downloads\AIM-X-main\AIM-X-main\Aim X\obj\Debug\Aim X.csproj.CoreCompileInputs.cache
+C:\Users\GamerzOS\Downloads\AIM-X-main\AIM-X-main\Aim X\obj\Debug\Aim X.csproj.Up2Date
+C:\Users\GamerzOS\Downloads\AIM-X-main\AIM-X-main\Aim X\obj\Debug\Aim X.exe
+C:\Users\GamerzOS\Downloads\AIM-X-main\AIM-X-main\Aim X\obj\Debug\Aim X.pdb
+C:\Users\GamerzOS\Downloads\AIM-X-main\AIM-X-main\Aim X\obj\Debug\Aim X.csproj.Fody.CopyLocal.cache
+C:\Users\GamerzOS\Downloads\AIM-X-main\AIM-X-main\Aim X\obj\Debug\Aim X.csproj.Fody.RuntimeCopyLocal.cache

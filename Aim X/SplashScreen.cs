@@ -25,7 +25,6 @@ namespace Aim_X
             this.DoubleBuffered = true;
             this.Size = new Size(620, 380);
 
-            // --- LOCK SIZE PREVENT FULLSCREEN ---
             this.MaximumSize = this.Size;
             this.MinimumSize = this.Size;
             this.MaximizeBox = false;
@@ -35,7 +34,9 @@ namespace Aim_X
             this.BackColor = Color.FromArgb(10, 10, 10);
 
             autoTimer.Interval = 15;
-            autoTimer.Tick += (s, e) => {
+
+            autoTimer.Tick += (s, e) =>
+            {
                 if (progressValue < 100)
                 {
                     progressValue += 0.7f;
@@ -44,10 +45,12 @@ namespace Aim_X
                 else
                 {
                     autoTimer.Stop();
-                    this.Hide();
-                    new MainPanel().Show();
+
+                    // 🔥 JUST CLOSE SPLASH
+                    this.Close();
                 }
             };
+
             autoTimer.Start();
         }
 
@@ -60,7 +63,6 @@ namespace Aim_X
 
             int borderRadius = 25;
             int width = this.ClientRectangle.Width;
-            int height = this.ClientRectangle.Height;
             int centerX = width / 2;
 
             using (GraphicsPath path = GetRoundedPath(this.ClientRectangle, borderRadius))
@@ -76,10 +78,9 @@ namespace Aim_X
             Rectangle borderRect = this.ClientRectangle;
             borderRect.Inflate(-1, -1);
             using (GraphicsPath borderPath = GetRoundedPath(borderRect, borderRadius))
-            using (Pen perfectionPen = new Pen(Color.Red, 1.5f))
+            using (Pen pen = new Pen(Color.Red, 1.5f))
             {
-                perfectionPen.Alignment = PenAlignment.Center;
-                g.DrawPath(perfectionPen, borderPath);
+                g.DrawPath(pen, borderPath);
             }
 
             using (Font logoFont = new Font("Corpta DEMO", 42, FontStyle.Bold | FontStyle.Italic))
@@ -88,9 +89,12 @@ namespace Aim_X
                 SizeF textSize = g.MeasureString(text, logoFont);
                 float tx = centerX - (textSize.Width / 2);
                 float ty = 110;
+
                 g.DrawString(text, logoFont, Brushes.Black, tx + 3, ty + 3);
-                using (SolidBrush glowBrush = new SolidBrush(Color.FromArgb(100, 255, 0, 0)))
-                    g.DrawString(text, logoFont, glowBrush, tx + 1, ty + 1);
+
+                using (SolidBrush glow = new SolidBrush(Color.FromArgb(100, 255, 0, 0)))
+                    g.DrawString(text, logoFont, glow, tx + 1, ty + 1);
+
                 g.DrawString(text, logoFont, Brushes.White, tx, ty);
             }
 
@@ -104,34 +108,46 @@ namespace Aim_X
             int barWidth = 500;
             int barX = centerX - (barWidth / 2);
             int barY = 280;
-            g.FillRectangle(new SolidBrush(Color.FromArgb(25, 25, 25)), new Rectangle(barX, barY, barWidth, 6));
+
+            g.FillRectangle(new SolidBrush(Color.FromArgb(25, 25, 25)),
+                new Rectangle(barX, barY, barWidth, 6));
 
             int currentWidth = (int)((barWidth * progressValue) / 100);
+
             if (currentWidth > 5)
             {
                 Rectangle progressRect = new Rectangle(barX, barY, currentWidth, 6);
+
                 using (LinearGradientBrush pBrush = new LinearGradientBrush(progressRect,
                     Color.DarkRed, Color.Red, LinearGradientMode.Horizontal))
                 {
                     g.FillRectangle(pBrush, progressRect);
                 }
+
                 g.FillRectangle(Brushes.White, progressRect.Right - 3, barY, 3, 6);
             }
 
             using (Font consoleFont = new Font("Segoe UI", 8, FontStyle.Bold | FontStyle.Italic))
             {
                 int logIndex = Math.Min((int)(progressValue / 21), subLogs.Length - 1);
-                g.DrawString("> " + subLogs[logIndex], consoleFont, Brushes.Lime, barX, barY - 22);
+
+                g.DrawString("> " + subLogs[logIndex],
+                    consoleFont, Brushes.Lime, barX, barY - 22);
+
                 string pct = (int)progressValue + "%";
                 SizeF pctSize = g.MeasureString(pct, consoleFont);
-                g.DrawString(pct, consoleFont, Brushes.Red, (barX + barWidth) - pctSize.Width, barY - 22);
+
+                g.DrawString(pct, consoleFont, Brushes.Red,
+                    (barX + barWidth) - pctSize.Width, barY - 22);
             }
 
             using (Font channelFont = new Font("Arial", 7, FontStyle.Bold))
             {
                 string watermark = "MR.PC GAMER // 2026 STABLE BUILD";
                 SizeF wmSize = g.MeasureString(watermark, channelFont);
-                g.DrawString(watermark, channelFont, Brushes.DimGray, centerX - (wmSize.Width / 2), 310);
+
+                g.DrawString(watermark, channelFont, Brushes.DimGray,
+                    centerX - (wmSize.Width / 2), 310);
             }
         }
 
@@ -139,15 +155,16 @@ namespace Aim_X
         {
             GraphicsPath path = new GraphicsPath();
             int d = radius * 2;
+
             path.AddArc(rect.X, rect.Y, d, d, 180, 90);
             path.AddArc(rect.Right - d, rect.Y, d, d, 270, 90);
             path.AddArc(rect.Right - d, rect.Bottom - d, d, d, 0, 90);
             path.AddArc(rect.X, rect.Bottom - d, d, d, 90, 90);
+
             path.CloseFigure();
             return path;
         }
 
-        // --- FULLSCREEN BLOCKER & DRAGGER ---
         protected override void WndProc(ref Message m)
         {
             const int WM_NCHITTEST = 0x84;
@@ -155,12 +172,9 @@ namespace Aim_X
             const int HTCLIENT = 0x01;
             const int WM_SYSCOMMAND = 0x0112;
             const int SC_MAXIMIZE = 0xF030;
-            const int WM_NCLBUTTONDBLCLK = 0x00A3; // Double click on caption
+            const int WM_NCLBUTTONDBLCLK = 0x00A3;
 
-            // Block Maximize via Snap/Shortcut
             if (m.Msg == WM_SYSCOMMAND && (int)m.WParam == SC_MAXIMIZE) return;
-
-            // Block Double Click to Maximize
             if (m.Msg == WM_NCLBUTTONDBLCLK) return;
 
             base.WndProc(ref m);
@@ -169,7 +183,9 @@ namespace Aim_X
             {
                 Point screenPoint = new Point(m.LParam.ToInt32());
                 Point clientPoint = this.PointToClient(screenPoint);
-                if (clientPoint.Y <= 60) m.Result = (IntPtr)HTCAPTION;
+
+                if (clientPoint.Y <= 60)
+                    m.Result = (IntPtr)HTCAPTION;
             }
         }
     }
