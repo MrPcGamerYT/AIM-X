@@ -8,13 +8,14 @@ using System.Windows.Forms;
 using System.Text;
 using System.Runtime.InteropServices;
 using System.Linq;
-using System.Management; // Add reference: System.Management
+using System.Management; 
 
 namespace Aim_X
 {
     public partial class Login : Form
     {
-        private const string CryptKey = "9X_Aim_Secure_77_Alpha";
+        // Secret key for internal encryption - you can change this!
+        private const string CryptKey = "9X_Aim_Secure_77_Alpha"; 
 
         private static api KeyAuthApp = new api(
             name: "Aim X",
@@ -22,19 +23,16 @@ namespace Aim_X
             version: "1.0"
         );
 
-        // --- ADVANCED NATIVE SECURITY IMPORTS ---
+        // --- NATIVE SECURITY IMPORTS ---
         [DllImport("kernel32.dll", SetLastError = true, ExactSpelling = true)]
         static extern bool IsDebuggerPresent();
 
         [DllImport("kernel32.dll", SetLastError = true, ExactSpelling = true)]
         static extern bool CheckRemoteDebuggerPresent(IntPtr hProcess, ref bool isDebuggerPresent);
 
-        [DllImport("kernel32.dll", CharSet = CharSet.Auto)]
-        static extern IntPtr GetModuleHandle(string lpModuleName);
-
         public Login()
         {
-            // 🔥 Stage 1: Absolute Stealth Check
+            // 🔥 Check for crackers before the window even opens
             ApplyExtremeSecurity();
 
             InitializeComponent();
@@ -42,24 +40,25 @@ namespace Aim_X
             this.DoubleBuffered = true;
             this.FormBorderStyle = FormBorderStyle.None;
             this.StartPosition = FormStartPosition.CenterScreen;
-
+            
             LoadSavedCredentials();
             InitKeyAuth();
         }
 
         private void ApplyExtremeSecurity()
         {
-            // 1. Anti-Debugger Check
+            // 1. Basic Debugger Check
             if (IsDebuggerPresent()) Environment.Exit(0);
-
+            
+            // 2. Remote Debugger Check (Advanced)
             bool isDebuggerPresent = false;
             CheckRemoteDebuggerPresent(Process.GetCurrentProcess().Handle, ref isDebuggerPresent);
             if (isDebuggerPresent) Environment.Exit(0);
 
-            // 2. Anti-VM / Anti-Sandbox Check
+            // 3. Virtual Machine Protection
             if (IsVirtualMachine()) Environment.Exit(0);
 
-            // 3. Blacklist Process Killer
+            // 4. Blacklist Scanner
             string[] blacklist = { "dnspy", "x64dbg", "ollydbg", "wireshark", "fiddler", "httpdebugger", "processhacker", "de4dot", "detectiteasy" };
             foreach (var process in Process.GetProcesses())
             {
@@ -73,26 +72,22 @@ namespace Aim_X
 
         private bool IsVirtualMachine()
         {
-            using (var searcher = new ManagementObjectSearcher("Select * from Win32_ComputerSystem"))
-            {
+            try {
+                using (var searcher = new ManagementObjectSearcher("Select * from Win32_ComputerSystem"))
                 using (var items = searcher.Get())
                 {
                     foreach (var item in items)
                     {
                         string manufacturer = item["Manufacturer"].ToString().ToLower();
-                        if ((manufacturer == "microsoft corporation" && item["Model"].ToString().ToUpperInvariant().Contains("VIRTUAL"))
-                            || manufacturer.Contains("vmware")
-                            || item["Model"].ToString().ToLower().Contains("virtualbox"))
-                        {
+                        if (manufacturer.Contains("vmware") || manufacturer.Contains("virtualbox") || item["Model"].ToString().ToUpperInvariant().Contains("VIRTUAL"))
                             return true;
-                        }
                     }
                 }
-            }
+            } catch { }
             return false;
         }
 
-        // --- SECURE DATA HANDLING ---
+        // --- DATA ENCRYPTION ---
         private string Encrypt(string text)
         {
             if (string.IsNullOrEmpty(text)) return string.Empty;
@@ -105,46 +100,37 @@ namespace Aim_X
         private string Decrypt(string base64Text)
         {
             if (string.IsNullOrEmpty(base64Text)) return string.Empty;
-            try
-            {
+            try {
                 string decoded = Encoding.UTF8.GetString(Convert.FromBase64String(base64Text));
                 var result = new StringBuilder();
                 for (int i = 0; i < decoded.Length; i++)
                     result.Append((char)(decoded[i] ^ CryptKey[i % CryptKey.Length]));
                 return result.ToString();
-            }
-            catch { return string.Empty; }
+            } catch { return string.Empty; }
         }
 
         private void LoadSavedCredentials()
         {
-            try
-            {
+            try {
                 string savedUser = Decrypt(Properties.Settings.Default.Username);
                 string savedPass = Decrypt(Properties.Settings.Default.Password);
-
-                if (!string.IsNullOrEmpty(savedUser))
-                {
+                if (!string.IsNullOrEmpty(savedUser)) {
                     user.Text = savedUser;
                     pass.Text = savedPass;
                     checkBox1.Checked = true;
                 }
-            }
-            catch { }
+            } catch { }
         }
 
         private async void InitKeyAuth()
         {
-            status.Text = "Status: Encrypting Tunnel...";
+            status.Text = "System: Syncing...";
             await Task.Run(() => KeyAuthApp.init());
-
-            if (!KeyAuthApp.response.success)
-            {
-                status.Text = "Security Error: Blocked";
+            if (!KeyAuthApp.response.success) {
+                status.Text = "Connection Error.";
                 return;
             }
-
-            status.Text = "Status: Protected.";
+            status.Text = "System: Protected.";
             if (checkBox1.Checked && !string.IsNullOrEmpty(user.Text)) await AttemptLogin();
         }
 
@@ -153,44 +139,45 @@ namespace Aim_X
         private async Task AttemptLogin()
         {
             if (string.IsNullOrWhiteSpace(user.Text) || string.IsNullOrWhiteSpace(pass.Text)) return;
-
             status.Text = "Authenticating...";
-            ApplyExtremeSecurity(); // Re-check before sending data
+            ApplyExtremeSecurity(); 
 
             await Task.Run(() => KeyAuthApp.login(user.Text, pass.Text));
 
-            if (KeyAuthApp.response.success)
-            {
-                if (checkBox1.Checked)
-                {
+            if (KeyAuthApp.response.success) {
+                if (checkBox1.Checked) {
                     Properties.Settings.Default.Username = Encrypt(user.Text);
                     Properties.Settings.Default.Password = Encrypt(pass.Text);
-                }
-                else
-                {
+                } else {
                     Properties.Settings.Default.Username = "";
                     Properties.Settings.Default.Password = "";
                 }
                 Properties.Settings.Default.Save();
-
                 this.DialogResult = DialogResult.OK;
                 this.Close();
-            }
-            else status.Text = "Denied: " + KeyAuthApp.response.message;
+            } else status.Text = "Error: " + KeyAuthApp.response.message;
         }
 
-        // --- UI DRAWING (SAME AS YOUR CUSTOM THEME) ---
+        private void checkBox1_CheckedChanged(object sender, EventArgs e)
+        {
+            if (!checkBox1.Checked) {
+                user.Clear();
+                pass.Clear();
+                Properties.Settings.Default.Username = "";
+                Properties.Settings.Default.Password = "";
+                Properties.Settings.Default.Save();
+            }
+        }
+
+        // --- CUSTOM UI RENDERING ---
         protected override void OnPaint(PaintEventArgs e)
         {
             Graphics g = e.Graphics;
             g.SmoothingMode = SmoothingMode.HighQuality;
-            using (GraphicsPath path = GetRoundedPath(this.ClientRectangle, 25))
-            {
+            using (GraphicsPath path = GetRoundedPath(this.ClientRectangle, 25)) {
                 this.Region = new Region(path);
                 using (LinearGradientBrush brush = new LinearGradientBrush(this.ClientRectangle, Color.FromArgb(45, 0, 0), Color.FromArgb(10, 10, 10), 90f))
-                {
                     g.FillPath(brush, path);
-                }
                 using (Pen pen = new Pen(Color.Red, 2f)) g.DrawPath(pen, path);
             }
         }
@@ -207,20 +194,10 @@ namespace Aim_X
             return path;
         }
 
-        private void checkBox1_CheckedChanged(object sender, EventArgs e)
-        {
-            // Clear credentials if unchecked
-            if (!checkBox1.Checked)
-            {
-                user.Clear();
-                pass.Clear();
-                Properties.Settings.Default.Username = "";
-                Properties.Settings.Default.Password = "";
-                Properties.Settings.Default.Save();
-            }
+        private void LaunchPortal(string url) {
+            try { Process.Start(new ProcessStartInfo(url) { UseShellExecute = true }); } catch { }
         }
 
-        private void LaunchPortal(string url) => Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
         private void guna2ImageButton1_Click(object sender, EventArgs e) => LaunchPortal("http://www.youtube.com/@MR.PC_GAMER_YT");
         private void guna2ImageButton2_Click(object sender, EventArgs e) => LaunchPortal("https://discord.gg/5qkKPRZkWa");
     }
