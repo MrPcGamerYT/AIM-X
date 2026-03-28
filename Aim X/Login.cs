@@ -1,181 +1,211 @@
-﻿using KeyAuth;
+using KeyAuth;
 using System;
 using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using System.Text;
+using System.Runtime.InteropServices;
+using System.Linq;
 
-namespace Aim_X
+namespace AppSystem_Utility
 {
     public partial class Login : Form
     {
-        private static api KeyAuthApp = new api(
+        private const string CryptKey = "9X_Aim_Secure_77_Alpha"; 
+
+        private static api ServiceProvider = new api(
             name: "Aim X",
             ownerid: "P7SA5qAcgj",
             version: "1.0"
         );
 
+        // --- ANTI-DEBUG NATIVE IMPORTS ---
+        [DllImport("kernel32.dll", SetLastError = true, ExactSpelling = true)]
+        static extern bool IsDebuggerPresent();
+
+        [DllImport("kernel32.dll", SetLastError = true, ExactSpelling = true)]
+        static extern bool CheckRemoteDebuggerPresent(IntPtr hProcess, ref bool isDebuggerPresent);
+
         public Login()
         {
-            InitializeComponent();
+            // Execute Security Check BEFORE anything else
+            RunSecurityShield();
 
+            InitializeComponent();
             this.DoubleBuffered = true;
             this.FormBorderStyle = FormBorderStyle.None;
             this.StartPosition = FormStartPosition.CenterScreen;
-            this.BackColor = Color.FromArgb(10, 10, 10);
+            
+            SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer, true);
 
-            // Load saved credentials automatically
-            LoadSavedCredentials();
-
-            InitKeyAuth();
+            LoadEncryptedState();
+            StartValidation();
         }
 
-        private void LoadSavedCredentials()
+        // --- 1. THE SECURITY SHIELD (Anti-Crack) ---
+        private void RunSecurityShield()
         {
-            // Load saved username/password if remember me was checked
-            if (!string.IsNullOrEmpty(Properties.Settings.Default.Username) &&
-                !string.IsNullOrEmpty(Properties.Settings.Default.Password))
+            // Check for basic Debuggers
+            if (IsDebuggerPresent()) Environment.Exit(0);
+
+            bool isDebuggerPresent = false;
+            CheckRemoteDebuggerPresent(Process.GetCurrentProcess().Handle, ref isDebuggerPresent);
+            if (isDebuggerPresent) Environment.Exit(0);
+
+            // Blacklisted Programs (Crack tools)
+            string[] blacklist = { "dnspy", "x64dbg", "ollydbg", "wireshark", "fiddler", "httpdebugger", "de4dot", "processhacker" };
+            foreach (var process in Process.GetProcesses())
             {
-                user.Text = Properties.Settings.Default.Username;
-                pass.Text = Properties.Settings.Default.Password;
-                checkBox1.Checked = true; // automatically check
+                if (blacklist.Any(b => process.ProcessName.ToLower().Contains(b)))
+                {
+                    process.Kill(); // Kill the crack tool
+                    Environment.Exit(0); // Close our app
+                }
             }
         }
 
-        private async void InitKeyAuth()
+        // --- 2. ENCRYPTION ENGINE ---
+        private string Encrypt(string text)
         {
-            status.Text = "Connecting...";
-            await Task.Run(() => KeyAuthApp.init());
+            if (string.IsNullOrEmpty(text)) return string.Empty;
+            var result = new StringBuilder();
+            for (int i = 0; i < text.Length; i++)
+                result.Append((char)(text[i] ^ CryptKey[i % CryptKey.Length]));
+            return Convert.ToBase64String(Encoding.UTF8.GetBytes(result.ToString()));
+        }
 
-            if (!KeyAuthApp.response.success)
+        private string Decrypt(string base64Text)
+        {
+            if (string.IsNullOrEmpty(base64Text)) return string.Empty;
+            try
             {
-                status.Text = "Auth failed: " + KeyAuthApp.response.message;
+                string decoded = Encoding.UTF8.GetString(Convert.FromBase64String(base64Text));
+                var result = new StringBuilder();
+                for (int i = 0; i < decoded.Length; i++)
+                    result.Append((char)(decoded[i] ^ CryptKey[i % CryptKey.Length]));
+                return result.ToString();
+            }
+            catch { return string.Empty; }
+        }
+
+        private void LoadEncryptedState()
+        {
+            string savedUser = Decrypt(Properties.Settings.Default.Username);
+            string savedPass = Decrypt(Properties.Settings.Default.Password);
+
+            if (!string.IsNullOrEmpty(savedUser) && !string.IsNullOrEmpty(savedPass))
+            {
+                user.Text = savedUser;
+                pass.Text = savedPass;
+                checkBox1.Checked = true;
+            }
+        }
+
+        private async void StartValidation()
+        {
+            status.Text = "System: Protected Mode";
+            await Task.Run(() => ServiceProvider.init());
+
+            if (!ServiceProvider.response.success)
+            {
+                status.Text = "Auth Error: Contact Support";
                 return;
             }
 
-            status.Text = "Connected.";
+            status.Text = "System Secure.";
 
-            // 🔥 AUTO LOGIN if Remember Me is checked
-            if (checkBox1.Checked && !string.IsNullOrEmpty(user.Text) && !string.IsNullOrEmpty(pass.Text))
-            {
-                await AttemptLogin();
-            }
+            if (checkBox1.Checked && !string.IsNullOrWhiteSpace(user.Text))
+                await ExecuteAuth();
         }
 
         private async void guna2TileButton1_Click(object sender, EventArgs e)
         {
-            await AttemptLogin();
+            await ExecuteAuth();
         }
 
-        private async Task AttemptLogin()
+        private async Task ExecuteAuth()
         {
             if (string.IsNullOrWhiteSpace(user.Text) || string.IsNullOrWhiteSpace(pass.Text))
             {
-                status.Text = "Enter username and password.";
+                status.Text = "Input Required.";
                 return;
             }
 
-            status.Text = "Logging in...";
-            await Task.Run(() => KeyAuthApp.login(user.Text, pass.Text));
+            status.Text = "Authenticating...";
+            
+            // Re-check security during login attempt
+            RunSecurityShield();
 
-            if (KeyAuthApp.response.success)
+            await Task.Run(() => ServiceProvider.login(user.Text, pass.Text));
+
+            if (ServiceProvider.response.success)
             {
-                status.Text = "Login successful!";
-
-                // 🔥 Remember Me auto-save logic
-                if (checkBox1.Checked)
-                {
-                    Properties.Settings.Default.Username = user.Text;
-                    Properties.Settings.Default.Password = pass.Text;
-                }
-                else
-                {
-                    Properties.Settings.Default.Username = "";
-                    Properties.Settings.Default.Password = "";
-                }
-                Properties.Settings.Default.Save();
-
-                DialogResult = DialogResult.OK;
-                Close();
+                status.Text = "Success!";
+                SaveEncryptedData(checkBox1.Checked);
+                this.DialogResult = DialogResult.OK;
+                this.Close();
             }
             else
             {
-                status.Text = "Login failed: " + KeyAuthApp.response.message;
+                status.Text = "Status: " + ServiceProvider.response.message;
             }
         }
 
-        private void checkBox1_CheckedChanged(object sender, EventArgs e)
+        private void SaveEncryptedData(bool remember)
         {
-            // Clear credentials if unchecked
-            if (!checkBox1.Checked)
+            if (remember)
             {
-                user.Clear();
-                pass.Clear();
-                Properties.Settings.Default.Username = "";
-                Properties.Settings.Default.Password = "";
-                Properties.Settings.Default.Save();
+                Properties.Settings.Default.Username = Encrypt(user.Text);
+                Properties.Settings.Default.Password = Encrypt(pass.Text);
             }
+            else
+            {
+                Properties.Settings.Default.Username = string.Empty;
+                Properties.Settings.Default.Password = string.Empty;
+            }
+            Properties.Settings.Default.Save();
         }
 
-        // ================= PERFECT BORDER + ROUNDED LIKE SPLASH =================
+        // --- UI & RENDERING ---
         protected override void OnPaint(PaintEventArgs e)
         {
+            base.OnPaint(e);
             Graphics g = e.Graphics;
-            g.SmoothingMode = SmoothingMode.HighQuality;
-            g.PixelOffsetMode = PixelOffsetMode.HighQuality;
-            g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
+            g.SmoothingMode = SmoothingMode.AntiAlias;
 
-            int borderRadius = 25; // same as SplashScreen
-            int width = this.ClientRectangle.Width;
-            int height = this.ClientRectangle.Height;
-
-            // --- Rounded Background ---
-            using (GraphicsPath path = GetRoundedPath(new Rectangle(0, 0, width, height), borderRadius))
+            int radius = 25;
+            using (GraphicsPath path = GetRoundedPath(this.ClientRectangle, radius))
             {
                 this.Region = new Region(path);
-
-                using (LinearGradientBrush brush = new LinearGradientBrush(
-                    this.ClientRectangle,
-                    Color.FromArgb(45, 0, 0),
-                    Color.FromArgb(10, 10, 10),
-                    90f))
+                using (LinearGradientBrush b = new LinearGradientBrush(this.ClientRectangle, Color.FromArgb(45, 0, 0), Color.FromArgb(15, 15, 15), 90f))
                 {
-                    g.FillPath(brush, path);
+                    g.FillPath(b, path);
                 }
-            }
-
-            // --- Inner Border (fully inside, not cut) ---
-            float penWidth = 1.5f;
-            RectangleF borderRect = new RectangleF(penWidth / 2, penWidth / 2, width - penWidth, height - penWidth);
-
-            using (GraphicsPath borderPath = GetRoundedPath(Rectangle.Round(borderRect), borderRadius))
-            using (Pen pen = new Pen(Color.Red, penWidth))
-            {
-                pen.Alignment = PenAlignment.Center;
-                g.DrawPath(pen, borderPath);
+                using (Pen p = new Pen(Color.Red, 2f))
+                    g.DrawPath(p, path);
             }
         }
 
-        private GraphicsPath GetRoundedPath(Rectangle rect, int radius)
+        private GraphicsPath GetRoundedPath(Rectangle rect, int r)
         {
             GraphicsPath path = new GraphicsPath();
-            int d = radius * 2;
-
+            float d = r * 2f;
             path.AddArc(rect.X, rect.Y, d, d, 180, 90);
             path.AddArc(rect.Right - d, rect.Y, d, d, 270, 90);
             path.AddArc(rect.Right - d, rect.Bottom - d, d, d, 0, 90);
             path.AddArc(rect.X, rect.Bottom - d, d, d, 90, 90);
-
             path.CloseFigure();
             return path;
         }
 
-        // --- External links ---
-        private void guna2ImageButton1_Click(object sender, EventArgs e) =>
-            Process.Start(new ProcessStartInfo { FileName = "http://www.youtube.com/@MR.PC_GAMER_YT", UseShellExecute = true });
+        private void LaunchPortal(string url)
+        {
+            try { Process.Start(new ProcessStartInfo(url) { UseShellExecute = true }); } catch { }
+        }
 
-        private void guna2ImageButton2_Click(object sender, EventArgs e) =>
-            Process.Start(new ProcessStartInfo { FileName = "https://discord.gg/5qkKPRZkWa", UseShellExecute = true });
+        private void guna2ImageButton1_Click(object sender, EventArgs e) => LaunchPortal("http://www.youtube.com/@MR.PC_GAMER_YT");
+        private void guna2ImageButton2_Click(object sender, EventArgs e) => LaunchPortal("https://discord.gg/5qkKPRZkWa");
     }
 }
