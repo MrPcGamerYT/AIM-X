@@ -1,4 +1,4 @@
-# Copyright (C) 2026 Mr.Pc Gamer (MR.PC GAMER)
+# Copyright © 2026 Mr.Pc Gamer (MR.PC GAMER)
 
 ## All Rights Reserved
 
