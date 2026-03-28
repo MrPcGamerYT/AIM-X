@@ -225,6 +225,7 @@
             // status
             // 
             this.status.AutoSize = true;
+            this.status.BackColor = System.Drawing.Color.Transparent;
             this.status.Font = new System.Drawing.Font("Orbitron", 9.75F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.status.Location = new System.Drawing.Point(11, 322);
             this.status.Name = "status";
