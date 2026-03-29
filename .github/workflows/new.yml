@@ -1,0 +1,48 @@
+- name: Obfuscate EXE
+  shell: pwsh
+  run: |
+    # Install tool
+    dotnet tool install --global Obfuscar.GlobalTool
+    $env:PATH += ";$env:USERPROFILE\.dotnet\tools"
+
+    # Find EXE
+    $exeFile = Get-ChildItem -Recurse -Filter "*.exe" |
+               Where-Object { $_.DirectoryName -match "\\bin\\Release" } |
+               Select-Object -First 1
+
+    if (-not $exeFile) { Write-Error "❌ No EXE found"; exit 1 }
+
+    $absExePath = $exeFile.FullName
+    $absExeDir = $exeFile.Directory.FullName
+    $exeName = $exeFile.Name
+
+    Write-Host "Found EXE at $absExePath"
+
+    # 🔥 IMPORTANT: Get .NET reference assemblies path
+    $dotnetPath = (Get-ChildItem "C:\Program Files\dotnet\packs\Microsoft.WindowsDesktop.App.Ref" -Recurse -Filter "System.Windows.Forms.dll" | Select-Object -First 1).Directory.FullName
+
+    Write-Host "Using framework path: $dotnetPath"
+
+    # Create config
+    $config = @"
+<?xml version='1.0'?>
+<Obfuscator>
+  <Var name='InPath' value='$absExeDir' />
+  <Var name='OutPath' value='$absExeDir\Obfuscated' />
+  <Var name='ExtraFrameworkFolders' value='$dotnetPath' />
+  <Module file='$absExePath' />
+</Obfuscator>
+"@
+
+    Set-Content -Path "obfuscar.xml" -Value $config
+
+    # Run Obfuscar
+    obfuscar.console obfuscar.xml
+
+    # Validate output
+    if (-not (Test-Path "$absExeDir\Obfuscated\$exeName")) {
+        Write-Error "❌ Obfuscation failed"; exit 1
+    }
+
+    Move-Item "$absExeDir\Obfuscated\$exeName" "$absExeDir\$exeName" -Force
+    Write-Host "✅ Obfuscation SUCCESS"
