@@ -1,4 +1,4 @@
-name: Build and Release (Ultimate)
+name: Build and Release
 
 on:
   push:
@@ -12,106 +12,98 @@ jobs:
       contents: write
 
     steps:
-    - uses: actions/checkout@v4
+    - name: Checkout
+      uses: actions/checkout@v4
 
-    - name: Setup MSBuild
-      uses: microsoft/setup-msbuild@v2
+    # Read version
+    - name: Read version
+      shell: pwsh
+      run: |
+        if (Test-Path update.json) {
+          $json = Get-Content update.json | ConvertFrom-Json
+          $v = $json.version
+        } else {
+          $v = "1.0.0.0"
+        }
+        echo "VERSION=$v" >> $env:GITHUB_ENV
+        echo "TAG=v$v" >> $env:GITHUB_ENV
 
-    - name: Setup NuGet
-      uses: NuGet/setup-nuget@v1
+    # Setup tools
+    - uses: microsoft/setup-msbuild@v2
+    - uses: NuGet/setup-nuget@v1
 
-    # =========================
-    # BUILD
-    # =========================
+    # 🔥 BUILD PROJECT
     - name: Build Project
       shell: pwsh
       run: |
-        $proj = Get-ChildItem -Recurse -Filter *.csproj | Select-Object -First 1
+        $proj = Get-ChildItem -Recurse -Filter *.csproj | Select -First 1
+        if (-not $proj) { Write-Error "No .csproj found!"; exit 1 }
         nuget restore $proj.FullName
-        msbuild $proj.FullName /p:Configuration=Release /m
+        msbuild $proj.FullName /p:Configuration=Release
 
-    # =========================
-    # OBFUSCATION (FIXED)
-    # =========================
+    # 🛡️ THE SINGLE STEP: MAXIMUM PROTECTION (OBFUSCATION)
     - name: Obfuscate EXE
       shell: pwsh
       run: |
+        # 1. Install Obfuscar Global Tool
         dotnet tool install --global Obfuscar.GlobalTool
-        $env:PATH += ";$env:USERPROFILE\.dotnet\tools"
 
-        $releaseDir = Get-ChildItem -Recurse -Directory |
-          Where-Object { $_.FullName -match "\\bin\\Release" } |
-          Select-Object -First 1
-
-        $releasePath = $releaseDir.FullName
-        Write-Host "Release: $releasePath"
-
-        $exeFile = Get-ChildItem $releasePath -Filter "*.exe" | Select-Object -First 1
+        # 2. Find the raw EXE
+        $exeFile = Get-ChildItem -Recurse -Filter "*.exe" | 
+                   Where-Object { $_.FullName -like "*bin\Release*" } | 
+                   Select-Object -First 1
+        
+        $exeDir = $exeFile.DirectoryName
         $exeName = $exeFile.Name
 
-        $framework = Get-ChildItem "C:\Program Files\dotnet\packs\Microsoft.WindowsDesktop.App.Ref" `
-          -Recurse -Filter "System.Windows.Forms.dll" |
-          Select-Object -First 1
-
-        $frameworkDir = $framework.Directory.FullName
-        Write-Host "Framework: $frameworkDir"
-
+        # 3. Create Obfuscar Configuration
         $config = @"
         <?xml version='1.0'?>
         <Obfuscator>
-          <Var name='InPath' value='$releasePath' />
-          <Var name='OutPath' value='$releasePath\Obfuscated' />
-          <Var name='ExtraFrameworkFolders' value='$frameworkDir' />
-        
-          <Var name='KeepPublicApi' value='true' />
-          <Var name='HidePrivateApi' value='true' />
-        
-          <Var name='RenameFields' value='false' />
-          <Var name='RenameProperties' value='false' />
-          <Var name='RenameEvents' value='false' />
-          <Var name='UseUnicodeNames' value='false' />
-        
-          <Module file='$($exeFile.FullName)' />
+          <Var name="InPath" value="$exeDir" />
+          <Var name="OutPath" value="$exeDir\Obfuscated" />
+          <Var name="KeepPublicApi" value="false" />
+          <Var name="HidePrivateApi" value="true" />
+          <Var name="RenameProperties" value="true" />
+          <Var name="RenameEvents" value="true" />
+          <Var name="RenameFields" value="true" />
+          <Var name="UseUnicodeNames" value="true" />
+          <Module path="$exeName" />
         </Obfuscator>
         "@
+        Set-Content -Path "obfuscar.xml" -Value $config
 
-        Set-Content obfuscar.xml $config
-
+        # 4. Run Protection
         obfuscar.console obfuscar.xml
 
-        if (-not (Test-Path "$releasePath\Obfuscated\$exeName")) {
-          Write-Error "Obfuscation failed"
-          exit 1
-        }
+        # 5. Replace the original EXE with the Protected one for the Installer
+        Move-Item -Path "$exeDir\Obfuscated\$exeName" -Destination "$exeDir\$exeName" -Force
+        Write-Host "✅ EXE successfully protected and scrambled!"
 
-        Copy-Item "$releasePath\Obfuscated\$exeName" "$releasePath\$exeName" -Force
-
-    # =========================
-    # INSTALLER
-    # =========================
+    # 🔥 BUILD INSTALLER
     - name: Build Installer
       uses: Minionguyjpro/Inno-Setup-Action@v1.2.2
       with:
         path: installer.iss
 
-    # =========================
-    # FIND SETUP
-    # =========================
+    # 🔥 FIND INSTALLER
     - name: Find Installer
       shell: pwsh
       run: |
-        $setup = Get-ChildItem -Recurse -Filter "*Setup*.exe" | Select-Object -First 1
-        if (-not $setup) { exit 1 }
+        $setup = Get-ChildItem -Recurse -Filter "*.exe" |
+                 Where-Object { $_.Name -like "*Setup*" } |
+                 Select-Object -First 1
+
+        if (-not $setup) { Write-Error "❌ Installer not found"; exit 1 }
         echo "SETUP_PATH=$($setup.FullName)" >> $env:GITHUB_ENV
 
-    # =========================
-    # RELEASE
-    # =========================
+    # 🔥 RELEASE
     - name: Create Release
       uses: softprops/action-gh-release@v2
       with:
-        tag_name: v1.0.0
-        name: AIM X Release
+        tag_name: ${{ env.TAG }}
+        name: AIM X ${{ env.TAG }}
         files: ${{ env.SETUP_PATH }}
+        make_latest: true
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_TOKEN: ${{ github.token }}
