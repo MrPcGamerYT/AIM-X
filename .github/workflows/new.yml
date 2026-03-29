@@ -1,48 +1,142 @@
-- name: Obfuscate EXE
-  shell: pwsh
-  run: |
-    # Install tool
-    dotnet tool install --global Obfuscar.GlobalTool
-    $env:PATH += ";$env:USERPROFILE\.dotnet\tools"
+name: Build and Release
 
-    # Find EXE
-    $exeFile = Get-ChildItem -Recurse -Filter "*.exe" |
-               Where-Object { $_.DirectoryName -match "\\bin\\Release" } |
-               Select-Object -First 1
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
 
-    if (-not $exeFile) { Write-Error "❌ No EXE found"; exit 1 }
+jobs:
+  build:
+    runs-on: windows-latest
+    permissions:
+      contents: write
 
-    $absExePath = $exeFile.FullName
-    $absExeDir = $exeFile.Directory.FullName
-    $exeName = $exeFile.Name
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
 
-    Write-Host "Found EXE at $absExePath"
+    # =========================
+    # READ VERSION
+    # =========================
+    - name: Read version
+      shell: pwsh
+      run: |
+        if (Test-Path update.json) {
+          $json = Get-Content update.json | ConvertFrom-Json
+          $v = $json.version
+        } else {
+          $v = "1.0.0.0"
+        }
+        Add-Content -Path $env:GITHUB_ENV -Value "VERSION=$v"
+        Add-Content -Path $env:GITHUB_ENV -Value "TAG=v$v"
 
-    # 🔥 IMPORTANT: Get .NET reference assemblies path
-    $dotnetPath = (Get-ChildItem "C:\Program Files\dotnet\packs\Microsoft.WindowsDesktop.App.Ref" -Recurse -Filter "System.Windows.Forms.dll" | Select-Object -First 1).Directory.FullName
+    # =========================
+    # SETUP BUILD TOOLS
+    # =========================
+    - uses: microsoft/setup-msbuild@v2
+    - uses: NuGet/setup-nuget@v1
 
-    Write-Host "Using framework path: $dotnetPath"
+    # =========================
+    # BUILD PROJECT
+    # =========================
+    - name: Build Project
+      shell: pwsh
+      run: |
+        $proj = Get-ChildItem -Recurse -Filter *.csproj | Select-Object -First 1
+        if (-not $proj) { Write-Error "❌ No .csproj found!"; exit 1 }
 
-    # Create config
-    $config = @"
-<?xml version='1.0'?>
-<Obfuscator>
-  <Var name='InPath' value='$absExeDir' />
-  <Var name='OutPath' value='$absExeDir\Obfuscated' />
-  <Var name='ExtraFrameworkFolders' value='$dotnetPath' />
-  <Module file='$absExePath' />
-</Obfuscator>
-"@
+        nuget restore $proj.FullName
+        msbuild $proj.FullName /p:Configuration=Release
 
-    Set-Content -Path "obfuscar.xml" -Value $config
+    # =========================
+    # OBFUSCATE EXE (FULLY FIXED)
+    # =========================
+    - name: Obfuscate EXE
+      shell: pwsh
+      run: |
+        # Install Obfuscar
+        dotnet tool install --global Obfuscar.GlobalTool
+        $env:PATH += ";$env:USERPROFILE\.dotnet\tools"
 
-    # Run Obfuscar
-    obfuscar.console obfuscar.xml
+        # Find EXE (supports subfolders like net6.0-windows)
+        $exeFile = Get-ChildItem -Recurse -Filter "*.exe" |
+                   Where-Object { $_.DirectoryName -match "\\bin\\Release" } |
+                   Select-Object -First 1
 
-    # Validate output
-    if (-not (Test-Path "$absExeDir\Obfuscated\$exeName")) {
-        Write-Error "❌ Obfuscation failed"; exit 1
-    }
+        if (-not $exeFile) { Write-Error "❌ No EXE found in Release"; exit 1 }
 
-    Move-Item "$absExeDir\Obfuscated\$exeName" "$absExeDir\$exeName" -Force
-    Write-Host "✅ Obfuscation SUCCESS"
+        $absExePath = $exeFile.FullName
+        $absExeDir  = $exeFile.Directory.FullName
+        $exeName    = $exeFile.Name
+
+        Write-Host "✅ Found EXE: $absExePath"
+
+        # 🔥 FIX: locate WindowsDesktop reference assemblies
+        $frameworkDll = Get-ChildItem "C:\Program Files\dotnet\packs\Microsoft.WindowsDesktop.App.Ref" `
+                          -Recurse -Filter "System.Windows.Forms.dll" `
+                          | Select-Object -First 1
+
+        if (-not $frameworkDll) { Write-Error "❌ Could not find .NET reference assemblies"; exit 1 }
+
+        $frameworkPath = $frameworkDll.Directory.FullName
+        Write-Host "✅ Framework Path: $frameworkPath"
+
+        # Create Obfuscar config (ABSOLUTE PATHS ONLY)
+        $config = @"
+        <?xml version='1.0'?>
+        <Obfuscator>
+        <Var name='InPath' value='$absExeDir' />
+        <Var name='OutPath' value='$absExeDir\Obfuscated' />
+          <Var name='ExtraFrameworkFolders' value='$frameworkPath' />
+          <Module file='$absExePath' />
+        </Obfuscator>
+        "@
+
+        Set-Content -Path "obfuscar.xml" -Value $config
+
+        # Run Obfuscar
+        obfuscar.console obfuscar.xml
+
+        # Validate output
+        $obfExe = "$absExeDir\Obfuscated\$exeName"
+
+        if (-not (Test-Path $obfExe)) {
+          Write-Error "❌ Obfuscation failed (output not found)"; exit 1
+        }
+
+        # Replace original EXE
+        Move-Item -Path $obfExe -Destination $absExePath -Force
+        Write-Host "🚀 Obfuscation SUCCESS"
+
+    # =========================
+    # BUILD INSTALLER
+    # =========================
+    - name: Build Installer
+      uses: Minionguyjpro/Inno-Setup-Action@v1.2.2
+      with:
+        path: installer.iss
+
+    # =========================
+    # FIND INSTALLER
+    # =========================
+    - name: Find Installer
+      shell: pwsh
+      run: |
+        $setup = Get-ChildItem -Recurse -Filter "*Setup*.exe" | Select-Object -First 1
+        if (-not $setup) { Write-Error "❌ Installer not found"; exit 1 }
+
+        Add-Content -Path $env:GITHUB_ENV -Value "SETUP_PATH=$($setup.FullName)"
+        Write-Host "✅ Installer found: $($setup.FullName)"
+
+    # =========================
+    # CREATE RELEASE
+    # =========================
+    - name: Create Release
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: ${{ env.TAG }}
+        name: AIM X ${{ env.TAG }}
+        files: "${{ env.SETUP_PATH }}"
+        make_latest: true
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
