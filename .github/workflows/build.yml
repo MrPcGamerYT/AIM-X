@@ -46,22 +46,45 @@ jobs:
         $exeDir = $exeFile.DirectoryName
         $exeName = $exeFile.Name
         
-        # ADDED: SkipMetadataValidation='true' to fix the System.Windows.Forms error
-        $xmlContent = "<?xml version='1.0'?><Obfuscator><Var name='InPath' value='.' /><Var name='OutPath' value='.\Obfuscated' /><Var name='KeepPublicApi' value='false' /><Var name='HidePrivateApi' value='true' /><Var name='RenameProperties' value='true' /><Var name='RenameEvents' value='true' /><Var name='RenameFields' value='true' /><Var name='UseUnicodeNames' value='true' /><Var name='HideStrings' value='true' /><Module file='$exeName' SkipMetadataValidation='true' /></Obfuscator>"
-        
+        # FIND THE DOTNET REFERENCE PATH (Fixes the System.Windows.Forms error)
+        $netPath = "C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8"
+        if (-not (Test-Path $netPath)) { $netPath = "C:\Windows\Microsoft.NET\Framework64\v4.0.30319" }
+
+        # CREATE PERFECT XML CONFIG
+        $xmlContent = @"
+        <?xml version='1.0'?>
+        <Obfuscator>
+        <Var name='InPath' value='.' />
+        <Var name='OutPath' value='.\Obfuscated' />
+        <Var name='KeepPublicApi' value='false' />
+        <Var name='HidePrivateApi' value='true' />
+        <Var name='RenameProperties' value='true' />
+        <Var name='RenameEvents' value='true' />
+        <Var name='RenameFields' value='true' />
+        <Var name='UseUnicodeNames' value='true' />
+        <Var name='HideStrings' value='true' />
+        <Var name='Optimize' value='true' />
+        <AssemblySearchPath path='$netPath' />
+        <Module file='$exeName'>
+        <SkipMetadataValidation>true</SkipMetadataValidation>
+        </Module>
+        </Obfuscator>
+        "@
         $xmlPath = Join-Path $exeDir "obfuscar.xml"
         $xmlContent | Out-File -FilePath $xmlPath -Encoding utf8
 
+        # RUN OBFUSCATION
         Push-Location $exeDir
         obfuscar.console obfuscar.xml
         Pop-Location
 
+        # VERIFY AND MOVE
         $obfuscatedExe = Join-Path "$exeDir\Obfuscated" $exeName
         if (Test-Path $obfuscatedExe) {
             Move-Item -Path $obfuscatedExe -Destination $exeFile.FullName -Force
-            Write-Host "✅ Success! Dependency error bypassed and EXE Scrambled."
+            Write-Host "✅ SUCCESS: EXE Protected and Scrambled!"
         } else {
-            Write-Error "❌ Obfuscation failed"
+            Write-Error "❌ Obfuscation failed - Output not found"
             exit 1
         }
 
