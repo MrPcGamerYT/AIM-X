@@ -12,107 +12,60 @@ jobs:
       contents: write
 
     steps:
-    # =========================
-    # CHECKOUT
-    # =========================
     - uses: actions/checkout@v4
 
-    # =========================
-    # CACHE NUGET
-    # =========================
-    - name: Cache NuGet
-      uses: actions/cache@v4
-      with:
-        path: ~/.nuget/packages
-        key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj') }}
-        restore-keys: |
-          nuget-${{ runner.os }}-
+    - name: Setup MSBuild
+      uses: microsoft/setup-msbuild@v2
+
+    - name: Setup NuGet
+      uses: NuGet/setup-nuget@v1
 
     # =========================
-    # READ VERSION
-    # =========================
-    - name: Read version
-      shell: pwsh
-      run: |
-        if (Test-Path update.json) {
-          $json = Get-Content update.json | ConvertFrom-Json
-          $v = $json.version
-        } else {
-          $v = "1.0.0.0"
-        }
-        Add-Content -Path $env:GITHUB_ENV -Value "VERSION=$v"
-        Add-Content -Path $env:GITHUB_ENV -Value "TAG=v$v"
-
-    # =========================
-    # SETUP TOOLS
-    # =========================
-    - uses: microsoft/setup-msbuild@v2
-    - uses: NuGet/setup-nuget@v1
-
-    # =========================
-    # BUILD PROJECT
+    # BUILD
     # =========================
     - name: Build Project
       shell: pwsh
       run: |
         $proj = Get-ChildItem -Recurse -Filter *.csproj | Select-Object -First 1
-        if (-not $proj) { Write-Error "❌ No .csproj found"; exit 1 }
-
         nuget restore $proj.FullName
         msbuild $proj.FullName /p:Configuration=Release /m
 
     # =========================
-    # SAFE OBFUSCATION (EXE ONLY)
+    # OBFUSCATION (FIXED)
     # =========================
-    - name: Obfuscate EXE (FIXED)
+    - name: Obfuscate EXE
       shell: pwsh
       run: |
         dotnet tool install --global Obfuscar.GlobalTool
         $env:PATH += ";$env:USERPROFILE\.dotnet\tools"
-    
-        # Find Release folder
+
         $releaseDir = Get-ChildItem -Recurse -Directory |
-                      Where-Object { $_.FullName -match "\\bin\\Release" } |
-                      Select-Object -First 1
-    
-        if (-not $releaseDir) { Write-Error "❌ Release folder not found"; exit 1 }
-    
+          Where-Object { $_.FullName -match "\\bin\\Release" } |
+          Select-Object -First 1
+
         $releasePath = $releaseDir.FullName
-        Write-Host "✅ Release folder: $releasePath"
-    
-        # Find EXE
+        Write-Host "Release: $releasePath"
+
         $exeFile = Get-ChildItem $releasePath -Filter "*.exe" | Select-Object -First 1
-        if (-not $exeFile) { Write-Error "❌ EXE not found"; exit 1 }
-    
         $exeName = $exeFile.Name
-    
-        # 🔥 FIX: Find WinForms framework path
-        $frameworkPath = Get-ChildItem "C:\Program Files\dotnet\packs\Microsoft.WindowsDesktop.App.Ref" `
-                          -Recurse -Filter "System.Windows.Forms.dll" `
-                          | Select-Object -First 1
-    
-        if (-not $frameworkPath) {
-            Write-Error "❌ WinForms framework not found"; exit 1
-        }
-    
-        $frameworkDir = $frameworkPath.Directory.FullName
-        Write-Host "✅ Framework path: $frameworkDir"
-    
-        # 🔥 WORKING CONFIG
+
+        $framework = Get-ChildItem "C:\Program Files\dotnet\packs\Microsoft.WindowsDesktop.App.Ref" `
+          -Recurse -Filter "System.Windows.Forms.dll" |
+          Select-Object -First 1
+
+        $frameworkDir = $framework.Directory.FullName
+        Write-Host "Framework: $frameworkDir"
+
         $config = @"
         <?xml version='1.0'?>
         <Obfuscator>
           <Var name='InPath' value='$releasePath' />
           <Var name='OutPath' value='$releasePath\Obfuscated' />
-        
-          <!-- 🔥 THIS FIXES YOUR ERROR -->
           <Var name='ExtraFrameworkFolders' value='$frameworkDir' />
         
-          <!-- SAFE SETTINGS -->
           <Var name='KeepPublicApi' value='true' />
           <Var name='HidePrivateApi' value='true' />
         
-          <!-- AVOID CRASH -->
           <Var name='RenameFields' value='false' />
           <Var name='RenameProperties' value='false' />
           <Var name='RenameEvents' value='false' />
@@ -121,52 +74,44 @@ jobs:
           <Module file='$($exeFile.FullName)' />
         </Obfuscator>
         "@
-    
+
         Set-Content obfuscar.xml $config
-    
-        # RUN
+
         obfuscar.console obfuscar.xml
-    
-        # CHECK
+
         if (-not (Test-Path "$releasePath\Obfuscated\$exeName")) {
-          Write-Error "❌ Obfuscation failed"; exit 1
+          Write-Error "Obfuscation failed"
+          exit 1
         }
-    
-        # REPLACE EXE
+
         Copy-Item "$releasePath\Obfuscated\$exeName" "$releasePath\$exeName" -Force
-    
-        Write-Host "✅ OBFUSCATION SUCCESS"
-    
-        Add-Content -Path $env:GITHUB_ENV -Value "BUILD_OUTPUT=$releasePath"
-        # =========================
-        # BUILD INSTALLER
-        # =========================
-        - name: Build Installer
-          uses: Minionguyjpro/Inno-Setup-Action@v1.2.2
-          with:
-            path: installer.iss
-    
-        # =========================
-        # FIND INSTALLER
-        # =========================
-        - name: Find Installer
-          shell: pwsh
-          run: |
-            $setup = Get-ChildItem -Recurse -Filter "*Setup*.exe" | Select-Object -First 1
-            if (-not $setup) { Write-Error "❌ Installer not found"; exit 1 }
-    
-            Add-Content -Path $env:GITHUB_ENV -Value "SETUP_PATH=$($setup.FullName)"
-            Write-Host "✅ Installer: $($setup.FullName)"
 
     # =========================
-    # CREATE RELEASE
+    # INSTALLER
+    # =========================
+    - name: Build Installer
+      uses: Minionguyjpro/Inno-Setup-Action@v1.2.2
+      with:
+        path: installer.iss
+
+    # =========================
+    # FIND SETUP
+    # =========================
+    - name: Find Installer
+      shell: pwsh
+      run: |
+        $setup = Get-ChildItem -Recurse -Filter "*Setup*.exe" | Select-Object -First 1
+        if (-not $setup) { exit 1 }
+        echo "SETUP_PATH=$($setup.FullName)" >> $env:GITHUB_ENV
+
+    # =========================
+    # RELEASE
     # =========================
     - name: Create Release
       uses: softprops/action-gh-release@v2
       with:
-        tag_name: ${{ env.TAG }}
-        name: AIM X ${{ env.TAG }}
-        files: "${{ env.SETUP_PATH }}"
-        make_latest: true
+        tag_name: v1.0.0
+        name: AIM X Release
+        files: ${{ env.SETUP_PATH }}
       env:
-        GITHUB_TOKEN: ${{ github.token }}
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
