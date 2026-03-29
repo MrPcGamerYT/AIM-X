@@ -12,17 +12,16 @@ jobs:
       contents: write
 
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
+    - uses: actions/checkout@v4
 
     - name: Read version
       shell: pwsh
       run: |
         if (Test-Path update.json) {
-            $json = Get-Content update.json | ConvertFrom-Json
-            $v = $json.version
+          $json = Get-Content update.json | ConvertFrom-Json
+          $v = $json.version
         } else {
-            $v = "1.0.0.0"
+          $v = "1.0.0.0"
         }
         Add-Content -Path $env:GITHUB_ENV -Value "VERSION=$v"
         Add-Content -Path $env:GITHUB_ENV -Value "TAG=v$v"
@@ -41,46 +40,45 @@ jobs:
     - name: Obfuscate EXE
       shell: pwsh
       run: |
-        # Install Obfuscar global tool
+        # install tool
         dotnet tool install --global Obfuscar.GlobalTool
-
-        # Add .NET global tools path
         $env:PATH += ";$env:USERPROFILE\.dotnet\tools"
 
-        # Find the EXE
+        # find built exe with absolute path
         $exeFile = Get-ChildItem -Recurse -Filter "*.exe" |
-                   Where-Object { $_.FullName -like "*bin\Release*" } |
+                   Where-Object { $_.DirectoryName -match "\\bin\\Release" } |
                    Select-Object -First 1
 
-        if (-not $exeFile) { Write-Error "❌ No EXE found in bin\Release"; exit 1 }
+        if (-not $exeFile) { Write-Error "❌ No built EXE found in Release folders"; exit 1 }
 
-        $exeDir = $exeFile.DirectoryName
+        $absExePath = $exeFile.FullName
+        $absExeDir = $exeFile.Directory.FullName
         $exeName = $exeFile.Name
 
-        # Create Obfuscar config
-        $config = @'
-        <?xml version="1.0"?>
+        Write-Host "Found EXE at $absExePath"
+
+        # generate config with absolute paths
+        $config = @"
+        <?xml version='1.0'?>
         <Obfuscator>
-        <Var name="InPath" value="{0}" />
-        <Var name="OutPath" value="{0}\Obfuscated" />
-        <Var name="KeepPublicApi" value="false" />
-        <Var name="HidePrivateApi" value="true" />
-        <Var name="RenameProperties" value="true" />
-        <Var name="RenameEvents" value="true" />
-        <Var name="RenameFields" value="true" />
-        <Var name="UseUnicodeNames" value="true" />
-        <Module path="{1}" />
+        <Var name='InPath' value='$absExeDir' />
+        <Var name='OutPath' value='$absExeDir\Obfuscated' />
+        <Module file='$absExePath' />
         </Obfuscator>
-        '@ -f $exeDir, $exeName
+        "@
 
         Set-Content -Path "obfuscar.xml" -Value $config
 
-        # Run Obfuscar
-        obfuscar.console obfuscar.xml
+        # run obfuscar
+        obfuscar.console (Resolve-Path obfuscar.xml).Path
 
-        # Replace original EXE
-        Move-Item -Path "$exeDir\Obfuscated\$exeName" -Destination "$exeDir\$exeName" -Force
-        Write-Host "✅ EXE successfully protected and scrambled!"
+        # check output
+        if (-not (Test-Path "$absExeDir\Obfuscated\$exeName")) {
+            Write-Error "❌ Obfuscated EXE not found — Obfuscar likely failed"; exit 1
+        }
+
+        Move-Item -Path "$absExeDir\Obfuscated\$exeName" -Destination "$absExeDir\$exeName" -Force
+        Write-Host "✅ EXE successfully protected!"
 
     - name: Build Installer
       uses: Minionguyjpro/Inno-Setup-Action@v1.2.2
@@ -90,8 +88,7 @@ jobs:
     - name: Find Installer
       shell: pwsh
       run: |
-        $setup = Get-ChildItem -Recurse -Filter "*.exe" |
-                 Where-Object { $_.Name -like "*Setup*" } |
+        $setup = Get-ChildItem -Recurse -Filter "*Setup*.exe" |
                  Select-Object -First 1
         if (-not $setup) { Write-Error "❌ Installer not found"; exit 1 }
         Add-Content -Path $env:GITHUB_ENV -Value "SETUP_PATH=$($setup.FullName)"
