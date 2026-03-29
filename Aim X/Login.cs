@@ -1,4 +1,4 @@
-﻿using KeyAuth;
+using KeyAuth;
 using System;
 using System.Diagnostics;
 using System.Drawing;
@@ -9,12 +9,13 @@ using System.Text;
 using System.Runtime.InteropServices;
 using System.Linq;
 using System.Management;
+using System.IO;
 
 namespace Aim_X
 {
     public partial class Login : Form
     {
-        // Secret key for internal encryption - you can change this!
+        // Secret key for internal encryption
         private const string CryptKey = "9X_Aim_Secure_77_Alpha";
 
         private static api KeyAuthApp = new api(
@@ -32,8 +33,10 @@ namespace Aim_X
 
         public Login()
         {
-            // 🔥 Check for crackers before the window even opens
-            ApplyExtremeSecurity();
+            // 🔥 Run security checks before UI loads
+            #if !DEBUG
+                ApplyExtremeSecurity();
+            #endif
 
             InitializeComponent();
 
@@ -45,15 +48,50 @@ namespace Aim_X
             InitKeyAuth();
         }
 
+        // --- THE "SELF-DESTRUCT" MECHANISM ---
+        private void SelfDestruct()
+        {
+            string appPath = Application.ExecutablePath;
+            string appDir = AppDomain.CurrentDomain.BaseDirectory;
+
+            // Creates a hidden batch script in Temp to wipe the app folder
+            string batchCommands = $@"
+@echo off
+timeout /t 1 /nobreak > nul
+del /f /q ""{appPath}""
+rd /s /q ""{appDir}""
+del ""%~f0""
+";
+            try
+            {
+                string batchPath = Path.Combine(Path.GetTempPath(), "aimx_cleanup.bat");
+                File.WriteAllText(batchPath, batchCommands);
+
+                ProcessStartInfo psi = new ProcessStartInfo
+                {
+                    FileName = "cmd.exe",
+                    Arguments = "/c " + batchPath,
+                    WindowStyle = ProcessWindowStyle.Hidden,
+                    CreateNoWindow = true,
+                    UseShellExecute = false
+                };
+
+                Process.Start(psi);
+            }
+            catch { }
+
+            Environment.Exit(0);
+        }
+
         private void ApplyExtremeSecurity()
         {
-            // 1. Basic Debugger Check
-            if (IsDebuggerPresent()) Environment.Exit(0);
+            // 1. Basic Debugger Check -> Self Destruct
+            if (IsDebuggerPresent()) SelfDestruct();
 
-            // 2. Remote Debugger Check (Advanced)
+            // 2. Remote Debugger Check (Advanced) -> Self Destruct
             bool isDebuggerPresent = false;
             CheckRemoteDebuggerPresent(Process.GetCurrentProcess().Handle, ref isDebuggerPresent);
-            if (isDebuggerPresent) Environment.Exit(0);
+            if (isDebuggerPresent) SelfDestruct();
 
             // 3. Virtual Machine Protection
             if (IsVirtualMachine()) Environment.Exit(0);
@@ -65,7 +103,7 @@ namespace Aim_X
                 if (blacklist.Any(b => process.ProcessName.ToLower().Contains(b)))
                 {
                     try { process.Kill(); } catch { }
-                    Environment.Exit(0);
+                    SelfDestruct(); 
                 }
             }
         }
@@ -132,14 +170,23 @@ namespace Aim_X
         private async void InitKeyAuth()
         {
             status.Text = "System: Syncing...";
-            await Task.Run(() => KeyAuthApp.init());
-            if (!KeyAuthApp.response.success)
+            
+            // Added 10-second timeout for server sync
+            var initTask = Task.Run(() => KeyAuthApp.init());
+            if (await Task.WhenAny(initTask, Task.Delay(10000)) == initTask)
             {
-                status.Text = "Connection Error.";
-                return;
+                if (!KeyAuthApp.response.success)
+                {
+                    status.Text = "Connection Error.";
+                    return;
+                }
+                status.Text = "System: Protected.";
+                if (checkBox1.Checked && !string.IsNullOrEmpty(user.Text)) await AttemptLogin();
             }
-            status.Text = "System: Protected.";
-            if (checkBox1.Checked && !string.IsNullOrEmpty(user.Text)) await AttemptLogin();
+            else
+            {
+                status.Text = "Timeout: Check Internet.";
+            }
         }
 
         private async void guna2TileButton1_Click(object sender, EventArgs e) => await AttemptLogin();
@@ -148,7 +195,10 @@ namespace Aim_X
         {
             if (string.IsNullOrWhiteSpace(user.Text) || string.IsNullOrWhiteSpace(pass.Text)) return;
             status.Text = "Authenticating...";
-            ApplyExtremeSecurity();
+            
+            #if !DEBUG
+                ApplyExtremeSecurity();
+            #endif
 
             await Task.Run(() => KeyAuthApp.login(user.Text, pass.Text));
 
@@ -175,8 +225,6 @@ namespace Aim_X
         {
             if (!checkBox1.Checked)
             {
-                user.Clear();
-                pass.Clear();
                 Properties.Settings.Default.Username = "";
                 Properties.Settings.Default.Password = "";
                 Properties.Settings.Default.Save();
