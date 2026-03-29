@@ -45,40 +45,48 @@ jobs:
     - name: Obfuscate EXE
       shell: pwsh
       run: |
-        # 1. Install Obfuscar Global Tool
+        # 1. Install Obfuscar
         dotnet tool install --global Obfuscar.GlobalTool
 
-        # 2. Find the raw EXE
+        # 2. Locate the EXE (Handling spaces in "Aim X.exe")
         $exeFile = Get-ChildItem -Recurse -Filter "*.exe" | 
-                   Where-Object { $_.FullName -like "*bin\Release*" } | 
+                   Where-Object { $_.FullName -like "*bin\Release*" -and $_.Name -notlike "*vshost*" } | 
                    Select-Object -First 1
         
+        if (-not $exeFile) { Write-Error "Could not find Release EXE"; exit 1 }
+
         $exeDir = $exeFile.DirectoryName
         $exeName = $exeFile.Name
 
-        # 3. Create Obfuscar Configuration
+        # 3. Create Obfuscar Configuration with the 'file' attribute fix
         $config = @"
-        <?xml version='1.0'?>
-        <Obfuscator>
-          <Var name="InPath" value="$exeDir" />
-          <Var name="OutPath" value="$exeDir\Obfuscated" />
-          <Var name="KeepPublicApi" value="false" />
-          <Var name="HidePrivateApi" value="true" />
-          <Var name="RenameProperties" value="true" />
-          <Var name="RenameEvents" value="true" />
-          <Var name="RenameFields" value="true" />
-          <Var name="UseUnicodeNames" value="true" />
-          <Module path="$exeName" />
-        </Obfuscator>
-        "@
-        Set-Content -Path "obfuscar.xml" -Value $config
+<?xml version='1.0'?>
+<Obfuscator>
+  <Var name="InPath" value="$exeDir" />
+  <Var name="OutPath" value="$exeDir\Obfuscated" />
+  <Var name="KeepPublicApi" value="false" />
+  <Var name="HidePrivateApi" value="true" />
+  <Var name="RenameProperties" value="true" />
+  <Var name="RenameEvents" value="true" />
+  <Var name="RenameFields" value="true" />
+  <Var name="UseUnicodeNames" value="true" />
+  <Module file="$exeName" />
+</Obfuscator>
+"@
+        Set-Content -Path "obfuscar.xml" -Value $config -Encoding UTF8
 
-        # 4. Run Protection
+        # 4. Run Obfuscator
         obfuscar.console obfuscar.xml
 
-        # 5. Replace the original EXE with the Protected one for the Installer
-        Move-Item -Path "$exeDir\Obfuscated\$exeName" -Destination "$exeDir\$exeName" -Force
-        Write-Host "✅ EXE successfully protected and scrambled!"
+        # 5. Verify and Move
+        $obfuscatedExe = Join-Path "$exeDir\Obfuscated" $exeName
+        if (Test-Path $obfuscatedExe) {
+            Move-Item -Path $obfuscatedExe -Destination $exeFile.FullName -Force
+            Write-Host "✅ EXE Scrambled Successfully: $exeName"
+        } else {
+            Write-Error "❌ Obfuscation failed - Output file not found at $obfuscatedExe"
+            exit 1
+        }
 
     # 🔥 BUILD INSTALLER
     - name: Build Installer
