@@ -1,4 +1,4 @@
-name: Build and Release
+name: Build and Release (Ultimate)
 
 on:
   push:
@@ -12,8 +12,21 @@ jobs:
       contents: write
 
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
+    # =========================
+    # CHECKOUT
+    # =========================
+    - uses: actions/checkout@v4
+
+    # =========================
+    # CACHE NUGET (⚡ SPEED)
+    # =========================
+    - name: Cache NuGet
+      uses: actions/cache@v4
+      with:
+        path: ~/.nuget/packages
+        key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj') }}
+        restore-keys: |
+          nuget-${{ runner.os }}-
 
     # =========================
     # READ VERSION
@@ -31,82 +44,99 @@ jobs:
         Add-Content -Path $env:GITHUB_ENV -Value "TAG=v$v"
 
     # =========================
-    # SETUP BUILD TOOLS
+    # SETUP TOOLS
     # =========================
     - uses: microsoft/setup-msbuild@v2
     - uses: NuGet/setup-nuget@v1
 
     # =========================
-    # BUILD PROJECT
+    # BUILD PROJECT (⚡ PARALLEL)
     # =========================
     - name: Build Project
       shell: pwsh
       run: |
         $proj = Get-ChildItem -Recurse -Filter *.csproj | Select-Object -First 1
-        if (-not $proj) { Write-Error "❌ No .csproj found!"; exit 1 }
+        if (-not $proj) { Write-Error "❌ No .csproj found"; exit 1 }
 
         nuget restore $proj.FullName
-        msbuild $proj.FullName /p:Configuration=Release
+        msbuild $proj.FullName /p:Configuration=Release /m
 
     # =========================
-    # OBFUSCATE EXE (FULLY FIXED)
+    # OBFUSCATE EXE + DLLs 🔥
     # =========================
-    - name: Obfuscate EXE
+    - name: Obfuscate All Assemblies
       shell: pwsh
       run: |
-        # Install Obfuscar
         dotnet tool install --global Obfuscar.GlobalTool
         $env:PATH += ";$env:USERPROFILE\.dotnet\tools"
 
-        # Find EXE (supports subfolders like net6.0-windows)
-        $exeFile = Get-ChildItem -Recurse -Filter "*.exe" |
-                   Where-Object { $_.DirectoryName -match "\\bin\\Release" } |
-                   Select-Object -First 1
+        # Find Release folder
+        $releaseDir = Get-ChildItem -Recurse -Directory |
+                      Where-Object { $_.FullName -match "\\bin\\Release" } |
+                      Select-Object -First 1
 
-        if (-not $exeFile) { Write-Error "❌ No EXE found in Release"; exit 1 }
+        if (-not $releaseDir) { Write-Error "❌ Release folder not found"; exit 1 }
 
-        $absExePath = $exeFile.FullName
-        $absExeDir  = $exeFile.Directory.FullName
-        $exeName    = $exeFile.Name
+        $releasePath = $releaseDir.FullName
+        Write-Host "✅ Release folder: $releasePath"
 
-        Write-Host "✅ Found EXE: $absExePath"
+        # Find main EXE
+        $exeFile = Get-ChildItem $releasePath -Filter "*.exe" | Select-Object -First 1
+        if (-not $exeFile) { Write-Error "❌ EXE not found"; exit 1 }
 
-        # 🔥 FIX: locate WindowsDesktop reference assemblies
+        $exeName = $exeFile.Name
+
+        # 🔥 Get framework path
         $frameworkDll = Get-ChildItem "C:\Program Files\dotnet\packs\Microsoft.WindowsDesktop.App.Ref" `
                           -Recurse -Filter "System.Windows.Forms.dll" `
                           | Select-Object -First 1
 
-        if (-not $frameworkDll) { Write-Error "❌ Could not find .NET reference assemblies"; exit 1 }
+        if (-not $frameworkDll) { Write-Error "❌ Framework not found"; exit 1 }
 
         $frameworkPath = $frameworkDll.Directory.FullName
-        Write-Host "✅ Framework Path: $frameworkPath"
 
-        # Create Obfuscar config (ABSOLUTE PATHS ONLY)
-        $config = @"
-        <?xml version='1.0'?>
-        <Obfuscator>
-        <Var name='InPath' value='$absExeDir' />
-        <Var name='OutPath' value='$absExeDir\Obfuscated' />
-          <Var name='ExtraFrameworkFolders' value='$frameworkPath' />
-          <Module file='$absExePath' />
-        </Obfuscator>
-        "@
-
-        Set-Content -Path "obfuscar.xml" -Value $config
-
-        # Run Obfuscar
-        obfuscar.console obfuscar.xml
-
-        # Validate output
-        $obfExe = "$absExeDir\Obfuscated\$exeName"
-
-        if (-not (Test-Path $obfExe)) {
-          Write-Error "❌ Obfuscation failed (output not found)"; exit 1
+        # 🔥 Build module list (EXE + DLLs)
+        $modules = ""
+        Get-ChildItem $releasePath -Filter "*.dll" | ForEach-Object {
+          $modules += "<Module file='$($_.FullName)' />`n"
         }
 
-        # Replace original EXE
-        Move-Item -Path $obfExe -Destination $absExePath -Force
-        Write-Host "🚀 Obfuscation SUCCESS"
+        $modules += "<Module file='$($exeFile.FullName)' />"
+
+        # 🔥 Advanced Obfuscar config
+        $config = @"
+<?xml version='1.0'?>
+<Obfuscator>
+  <Var name='InPath' value='$releasePath' />
+  <Var name='OutPath' value='$releasePath\Obfuscated' />
+  <Var name='ExtraFrameworkFolders' value='$frameworkPath' />
+
+  <Var name='KeepPublicApi' value='false' />
+  <Var name='HidePrivateApi' value='true' />
+  <Var name='RenameProperties' value='true' />
+  <Var name='RenameEvents' value='true' />
+  <Var name='RenameFields' value='true' />
+  <Var name='UseUnicodeNames' value='true' />
+  <Var name='SuppressIldasm' value='true' />
+
+  $modules
+</Obfuscator>
+"@
+
+        Set-Content obfuscar.xml $config
+
+        # Run obfuscation
+        obfuscar.console obfuscar.xml
+
+        # Validate
+        if (-not (Test-Path "$releasePath\Obfuscated\$exeName")) {
+          Write-Error "❌ Obfuscation failed"; exit 1
+        }
+
+        # Replace all files
+        Copy-Item "$releasePath\Obfuscated\*" $releasePath -Recurse -Force
+
+        Write-Host "🚀 FULL OBFUSCATION COMPLETE"
 
     # =========================
     # BUILD INSTALLER
@@ -126,7 +156,7 @@ jobs:
         if (-not $setup) { Write-Error "❌ Installer not found"; exit 1 }
 
         Add-Content -Path $env:GITHUB_ENV -Value "SETUP_PATH=$($setup.FullName)"
-        Write-Host "✅ Installer found: $($setup.FullName)"
+        Write-Host "✅ Installer: $($setup.FullName)"
 
     # =========================
     # CREATE RELEASE
