@@ -64,86 +64,99 @@ jobs:
     # =========================
     # SAFE OBFUSCATION (EXE ONLY)
     # =========================
-    - name: Obfuscate EXE (SAFE)
+    - name: Obfuscate EXE (FIXED)
       shell: pwsh
       run: |
         dotnet tool install --global Obfuscar.GlobalTool
         $env:PATH += ";$env:USERPROFILE\.dotnet\tools"
-
+    
         # Find Release folder
         $releaseDir = Get-ChildItem -Recurse -Directory |
                       Where-Object { $_.FullName -match "\\bin\\Release" } |
                       Select-Object -First 1
-
+    
         if (-not $releaseDir) { Write-Error "❌ Release folder not found"; exit 1 }
-
+    
         $releasePath = $releaseDir.FullName
         Write-Host "✅ Release folder: $releasePath"
-
+    
         # Find EXE
         $exeFile = Get-ChildItem $releasePath -Filter "*.exe" | Select-Object -First 1
         if (-not $exeFile) { Write-Error "❌ EXE not found"; exit 1 }
-
+    
         $exeName = $exeFile.Name
-
-        # 🔥 SAFE CONFIG (NO CRASH)
+    
+        # 🔥 FIX: Find WinForms framework path
+        $frameworkPath = Get-ChildItem "C:\Program Files\dotnet\packs\Microsoft.WindowsDesktop.App.Ref" `
+                          -Recurse -Filter "System.Windows.Forms.dll" `
+                          | Select-Object -First 1
+    
+        if (-not $frameworkPath) {
+            Write-Error "❌ WinForms framework not found"; exit 1
+        }
+    
+        $frameworkDir = $frameworkPath.Directory.FullName
+        Write-Host "✅ Framework path: $frameworkDir"
+    
+        # 🔥 WORKING CONFIG
         $config = @"
         <?xml version='1.0'?>
         <Obfuscator>
           <Var name='InPath' value='$releasePath' />
           <Var name='OutPath' value='$releasePath\Obfuscated' />
         
+          <!-- 🔥 THIS FIXES YOUR ERROR -->
+          <Var name='ExtraFrameworkFolders' value='$frameworkDir' />
+        
           <!-- SAFE SETTINGS -->
           <Var name='KeepPublicApi' value='true' />
           <Var name='HidePrivateApi' value='true' />
         
-          <!-- DISABLE DANGEROUS FEATURES -->
+          <!-- AVOID CRASH -->
           <Var name='RenameFields' value='false' />
           <Var name='RenameProperties' value='false' />
           <Var name='RenameEvents' value='false' />
           <Var name='UseUnicodeNames' value='false' />
         
-          <!-- ONLY EXE -->
           <Module file='$($exeFile.FullName)' />
         </Obfuscator>
         "@
-
+    
         Set-Content obfuscar.xml $config
-
+    
+        # RUN
         obfuscar.console obfuscar.xml
-
-        # Validate
+    
+        # CHECK
         if (-not (Test-Path "$releasePath\Obfuscated\$exeName")) {
           Write-Error "❌ Obfuscation failed"; exit 1
         }
-
-        # Replace EXE only
+    
+        # REPLACE EXE
         Copy-Item "$releasePath\Obfuscated\$exeName" "$releasePath\$exeName" -Force
-
-        Write-Host "✅ SAFE OBFUSCATION DONE"
-
-        # Pass build path
+    
+        Write-Host "✅ OBFUSCATION SUCCESS"
+    
         Add-Content -Path $env:GITHUB_ENV -Value "BUILD_OUTPUT=$releasePath"
-
-    # =========================
-    # BUILD INSTALLER
-    # =========================
-    - name: Build Installer
-      uses: Minionguyjpro/Inno-Setup-Action@v1.2.2
-      with:
-        path: installer.iss
-
-    # =========================
-    # FIND INSTALLER
-    # =========================
-    - name: Find Installer
-      shell: pwsh
-      run: |
-        $setup = Get-ChildItem -Recurse -Filter "*Setup*.exe" | Select-Object -First 1
-        if (-not $setup) { Write-Error "❌ Installer not found"; exit 1 }
-
-        Add-Content -Path $env:GITHUB_ENV -Value "SETUP_PATH=$($setup.FullName)"
-        Write-Host "✅ Installer: $($setup.FullName)"
+        # =========================
+        # BUILD INSTALLER
+        # =========================
+        - name: Build Installer
+          uses: Minionguyjpro/Inno-Setup-Action@v1.2.2
+          with:
+            path: installer.iss
+    
+        # =========================
+        # FIND INSTALLER
+        # =========================
+        - name: Find Installer
+          shell: pwsh
+          run: |
+            $setup = Get-ChildItem -Recurse -Filter "*Setup*.exe" | Select-Object -First 1
+            if (-not $setup) { Write-Error "❌ Installer not found"; exit 1 }
+    
+            Add-Content -Path $env:GITHUB_ENV -Value "SETUP_PATH=$($setup.FullName)"
+            Write-Host "✅ Installer: $($setup.FullName)"
 
     # =========================
     # CREATE RELEASE
