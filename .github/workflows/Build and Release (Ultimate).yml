@@ -18,7 +18,7 @@ jobs:
     - uses: actions/checkout@v4
 
     # =========================
-    # CACHE NUGET (⚡ SPEED)
+    # CACHE NUGET
     # =========================
     - name: Cache NuGet
       uses: actions/cache@v4
@@ -50,7 +50,7 @@ jobs:
     - uses: NuGet/setup-nuget@v1
 
     # =========================
-    # BUILD PROJECT (⚡ PARALLEL)
+    # BUILD PROJECT
     # =========================
     - name: Build Project
       shell: pwsh
@@ -62,9 +62,9 @@ jobs:
         msbuild $proj.FullName /p:Configuration=Release /m
 
     # =========================
-    # OBFUSCATE EXE + DLLs 🔥
+    # SAFE OBFUSCATION (EXE ONLY)
     # =========================
-    - name: Obfuscate All Assemblies
+    - name: Obfuscate EXE (SAFE)
       shell: pwsh
       run: |
         dotnet tool install --global Obfuscar.GlobalTool
@@ -80,52 +80,36 @@ jobs:
         $releasePath = $releaseDir.FullName
         Write-Host "✅ Release folder: $releasePath"
 
-        # Find main EXE
+        # Find EXE
         $exeFile = Get-ChildItem $releasePath -Filter "*.exe" | Select-Object -First 1
         if (-not $exeFile) { Write-Error "❌ EXE not found"; exit 1 }
 
         $exeName = $exeFile.Name
 
-        # 🔥 Get framework path
-        $frameworkDll = Get-ChildItem "C:\Program Files\dotnet\packs\Microsoft.WindowsDesktop.App.Ref" `
-                          -Recurse -Filter "System.Windows.Forms.dll" `
-                          | Select-Object -First 1
-
-        if (-not $frameworkDll) { Write-Error "❌ Framework not found"; exit 1 }
-
-        $frameworkPath = $frameworkDll.Directory.FullName
-
-        # 🔥 Build module list (EXE + DLLs)
-        $modules = ""
-        Get-ChildItem $releasePath -Filter "*.dll" | ForEach-Object {
-          $modules += "<Module file='$($_.FullName)' />`n"
-        }
-
-        $modules += "<Module file='$($exeFile.FullName)' />"
-
-        # 🔥 Advanced Obfuscar config
+        # 🔥 SAFE CONFIG (NO CRASH)
         $config = @"
         <?xml version='1.0'?>
         <Obfuscator>
           <Var name='InPath' value='$releasePath' />
           <Var name='OutPath' value='$releasePath\Obfuscated' />
-          <Var name='ExtraFrameworkFolders' value='$frameworkPath' />
         
-          <Var name='KeepPublicApi' value='false' />
+          <!-- SAFE SETTINGS -->
+          <Var name='KeepPublicApi' value='true' />
           <Var name='HidePrivateApi' value='true' />
-          <Var name='RenameProperties' value='true' />
-          <Var name='RenameEvents' value='true' />
-          <Var name='RenameFields' value='true' />
-          <Var name='UseUnicodeNames' value='true' />
-          <Var name='SuppressIldasm' value='true' />
         
-          $modules
+          <!-- DISABLE DANGEROUS FEATURES -->
+          <Var name='RenameFields' value='false' />
+          <Var name='RenameProperties' value='false' />
+          <Var name='RenameEvents' value='false' />
+          <Var name='UseUnicodeNames' value='false' />
+        
+          <!-- ONLY EXE -->
+          <Module file='$($exeFile.FullName)' />
         </Obfuscator>
         "@
 
         Set-Content obfuscar.xml $config
 
-        # Run obfuscation
         obfuscar.console obfuscar.xml
 
         # Validate
@@ -133,12 +117,12 @@ jobs:
           Write-Error "❌ Obfuscation failed"; exit 1
         }
 
-        # Replace all files
-        Copy-Item "$releasePath\Obfuscated\*" $releasePath -Recurse -Force
+        # Replace EXE only
+        Copy-Item "$releasePath\Obfuscated\$exeName" "$releasePath\$exeName" -Force
 
-        Write-Host "🚀 FULL OBFUSCATION COMPLETE"
+        Write-Host "✅ SAFE OBFUSCATION DONE"
 
-        # ✅ PASS BUILD OUTPUT TO INSTALLER
+        # Pass build path
         Add-Content -Path $env:GITHUB_ENV -Value "BUILD_OUTPUT=$releasePath"
 
     # =========================
