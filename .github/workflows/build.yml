@@ -40,30 +40,28 @@ jobs:
       run: |
         dotnet tool install --global Obfuscar.GlobalTool
         
-        # 1. Find the EXE inside bin\Release
         $exeFile = Get-ChildItem -Recurse -Filter "*.exe" | Where-Object { $_.FullName -like "*bin\Release*" -and $_.Name -notlike "*vshost*" } | Select -First 1
-        if (-not $exeFile) { Write-Error "❌ EXE not found in bin\Release"; exit 1 }
+        if (-not $exeFile) { Write-Error "❌ EXE not found"; exit 1 }
         
         $exeDir = $exeFile.DirectoryName
         $exeName = $exeFile.Name
         
-        # 2. Create the XML directly IN the EXE directory to avoid path errors
-        $xmlContent = "<?xml version='1.0'?><Obfuscator><Var name='InPath' value='.' /><Var name='OutPath' value='.\Obfuscated' /><Var name='KeepPublicApi' value='false' /><Var name='HidePrivateApi' value='true' /><Var name='RenameProperties' value='true' /><Var name='RenameEvents' value='true' /><Var name='RenameFields' value='true' /><Var name='UseUnicodeNames' value='true' /><Module file='$exeName' /></Obfuscator>"
+        # ADDED: SkipMetadataValidation='true' to fix the System.Windows.Forms error
+        $xmlContent = "<?xml version='1.0'?><Obfuscator><Var name='InPath' value='.' /><Var name='OutPath' value='.\Obfuscated' /><Var name='KeepPublicApi' value='false' /><Var name='HidePrivateApi' value='true' /><Var name='RenameProperties' value='true' /><Var name='RenameEvents' value='true' /><Var name='RenameFields' value='true' /><Var name='UseUnicodeNames' value='true' /><Var name='HideStrings' value='true' /><Module file='$exeName' SkipMetadataValidation='true' /></Obfuscator>"
+        
         $xmlPath = Join-Path $exeDir "obfuscar.xml"
         $xmlContent | Out-File -FilePath $xmlPath -Encoding utf8
 
-        # 3. Change directory to the EXE folder and run Obfuscar
         Push-Location $exeDir
         obfuscar.console obfuscar.xml
         Pop-Location
 
-        # 4. Move the scrambled EXE back to the original Release folder
         $obfuscatedExe = Join-Path "$exeDir\Obfuscated" $exeName
         if (Test-Path $obfuscatedExe) {
             Move-Item -Path $obfuscatedExe -Destination $exeFile.FullName -Force
-            Write-Host "✅ Success! EXE Scrambled."
+            Write-Host "✅ Success! Dependency error bypassed and EXE Scrambled."
         } else {
-            Write-Error "❌ Obfuscation failed - Output not found"
+            Write-Error "❌ Obfuscation failed"
             exit 1
         }
 
