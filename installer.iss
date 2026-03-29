@@ -1,40 +1,40 @@
-﻿[Setup]
-AppName=AIM X
-AppVersion=1.2.9
-DefaultDirName={autopf}\AIM X
-DefaultGroupName=AIM X
+#define MyAppName "AIM X"
+#define MyAppVersion "1.2.9"
+#define MyAppExe "Aim X.exe"
+#define MyBuildDir GetEnv("BUILD_OUTPUT")
+
+[Setup]
+AppName={#MyAppName}
+AppVersion={#MyAppVersion}
+DefaultDirName={autopf}\{#MyAppName}
+DefaultGroupName={#MyAppName}
 OutputDir=setup_output
 OutputBaseFilename=AIM-X-Setup
 
-; --- PUBLISHER DETAILS ---
+; Publisher
 AppPublisher=Mr.Pc Gamer
 AppPublisherURL=https://github.com/MrPcGamerYT/AIM-X
 VersionInfoCompany=Mr.Pc Gamer
 VersionInfoDescription=Optimizer System Setup
-VersionInfoVersion=1.2.9
-VersionInfoCopyright=Ã‚Â© 2026 Mr.Pc Gamer. All Rights Reserved.
+VersionInfoVersion={#MyAppVersion}
+VersionInfoCopyright=© 2026 Mr.Pc Gamer
 
-; --- ADMIN RIGHTS ---
 PrivilegesRequired=admin
-
-; --- ICON FIX ---
-SetupIconFile=app_icon.ico 
+SetupIconFile=app_icon.ico
 
 [Files]
-Source: "{#GetEnv('EXE_PATH')}"; DestDir: "{app}"; Flags: ignoreversion
-
-; include everything from the SAME folder as EXE
-Source: "{#GetEnv('EXE_PATH')}\..\\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+; 🔥 COPY EVERYTHING FROM BUILD OUTPUT
+Source: "{#MyBuildDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{group}\AIM X"; Filename: "{app}\Aim X.exe"
-Name: "{autodesktop}\AIM X"; Filename: "{app}\Aim X.exe"
+Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExe}"
+Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExe}"
 
 [Registry]
-Root: "HKLM"; Subkey: "SOFTWARE\Microsoft\Windows NT\CurrentVersion\AppCompatFlags\Layers"; \
-    ValueType: String; ValueName: "{app}\Aim X.exe"; ValueData: "~ RUNASADMIN"; \
-    Flags: uninsdeletevalue
+Root: HKLM; Subkey: "SOFTWARE\Microsoft\Windows NT\CurrentVersion\AppCompatFlags\Layers"; \
+ValueType: String; ValueName: "{app}\{#MyAppExe}"; ValueData: "~ RUNASADMIN"; \
+Flags: uninsdeletevalue
 
 [Run]
-Filename: "{app}\Aim X.exe"; Description: "{cm:LaunchProgram,Optimizer}"; Flags: nowait postinstall skipifsilent runascurrentuser
-
+Filename: "{app}\{#MyAppExe}"; Description: "{cm:LaunchProgram,{#MyAppName}}"; \
+Flags: nowait postinstall skipifsilent runascurrentuser
