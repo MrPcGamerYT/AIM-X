@@ -25,7 +25,6 @@ jobs:
         } else {
           $v = "1.0.0.0"
         }
-
         echo "VERSION=$v" >> $env:GITHUB_ENV
         echo "TAG=v$v" >> $env:GITHUB_ENV
 
@@ -38,32 +37,48 @@ jobs:
       shell: pwsh
       run: |
         $proj = Get-ChildItem -Recurse -Filter *.csproj | Select -First 1
-
-        if (-not $proj) {
-          Write-Error "No .csproj found!"
-          exit 1
-        }
-
+        if (-not $proj) { Write-Error "No .csproj found!"; exit 1 }
         nuget restore $proj.FullName
         msbuild $proj.FullName /p:Configuration=Release
 
-    # 🔥 FIND EXE (NO HARD PATH)
-    - name: Find EXE
+    # 🛡️ THE SINGLE STEP: MAXIMUM PROTECTION (OBFUSCATION)
+    - name: Obfuscate EXE
       shell: pwsh
       run: |
-        Write-Host "Searching for EXE..."
+        # 1. Install Obfuscar Global Tool
+        dotnet tool install --global Obfuscar.GlobalTool
 
-        $exe = Get-ChildItem -Recurse -Filter "*.exe" |
-               Where-Object { $_.FullName -like "*bin\Release*" } |
-               Select-Object -First 1
+        # 2. Find the raw EXE
+        $exeFile = Get-ChildItem -Recurse -Filter "*.exe" | 
+                   Where-Object { $_.FullName -like "*bin\Release*" } | 
+                   Select-Object -First 1
+        
+        $exeDir = $exeFile.DirectoryName
+        $exeName = $exeFile.Name
 
-        if (-not $exe) {
-          Write-Error "❌ No EXE found"
-          exit 1
-        }
+        # 3. Create Obfuscar Configuration
+        $config = @"
+        <?xml version='1.0'?>
+        <Obfuscator>
+          <Var name="InPath" value="$exeDir" />
+          <Var name="OutPath" value="$exeDir\Obfuscated" />
+          <Var name="KeepPublicApi" value="false" />
+          <Var name="HidePrivateApi" value="true" />
+          <Var name="RenameProperties" value="true" />
+          <Var name="RenameEvents" value="true" />
+          <Var name="RenameFields" value="true" />
+          <Var name="UseUnicodeNames" value="true" />
+          <Module path="$exeName" />
+        </Obfuscator>
+        "@
+        Set-Content -Path "obfuscar.xml" -Value $config
 
-        Write-Host "✅ Found EXE: $($exe.FullName)"
-        echo "EXE_PATH=$($exe.FullName)" >> $env:GITHUB_ENV
+        # 4. Run Protection
+        obfuscar.console obfuscar.xml
+
+        # 5. Replace the original EXE with the Protected one for the Installer
+        Move-Item -Path "$exeDir\Obfuscated\$exeName" -Destination "$exeDir\$exeName" -Force
+        Write-Host "✅ EXE successfully protected and scrambled!"
 
     # 🔥 BUILD INSTALLER
     - name: Build Installer
@@ -71,7 +86,7 @@ jobs:
       with:
         path: installer.iss
 
-    # 🔥 FIND INSTALLER (NO HARD PATH)
+    # 🔥 FIND INSTALLER
     - name: Find Installer
       shell: pwsh
       run: |
@@ -79,12 +94,7 @@ jobs:
                  Where-Object { $_.Name -like "*Setup*" } |
                  Select-Object -First 1
 
-        if (-not $setup) {
-          Write-Error "❌ Installer not found"
-          exit 1
-        }
-
-        Write-Host "✅ Installer: $($setup.FullName)"
+        if (-not $setup) { Write-Error "❌ Installer not found"; exit 1 }
         echo "SETUP_PATH=$($setup.FullName)" >> $env:GITHUB_ENV
 
     # 🔥 RELEASE
