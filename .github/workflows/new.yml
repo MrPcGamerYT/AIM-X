@@ -105,23 +105,23 @@ jobs:
 
         # 🔥 Advanced Obfuscar config
         $config = @"
-<?xml version='1.0'?>
-<Obfuscator>
-  <Var name='InPath' value='$releasePath' />
-  <Var name='OutPath' value='$releasePath\Obfuscated' />
-  <Var name='ExtraFrameworkFolders' value='$frameworkPath' />
-
-  <Var name='KeepPublicApi' value='false' />
-  <Var name='HidePrivateApi' value='true' />
-  <Var name='RenameProperties' value='true' />
-  <Var name='RenameEvents' value='true' />
-  <Var name='RenameFields' value='true' />
-  <Var name='UseUnicodeNames' value='true' />
-  <Var name='SuppressIldasm' value='true' />
-
-  $modules
-</Obfuscator>
-"@
+        <?xml version='1.0'?>
+        <Obfuscator>
+          <Var name='InPath' value='$releasePath' />
+          <Var name='OutPath' value='$releasePath\Obfuscated' />
+          <Var name='ExtraFrameworkFolders' value='$frameworkPath' />
+        
+          <Var name='KeepPublicApi' value='false' />
+          <Var name='HidePrivateApi' value='true' />
+          <Var name='RenameProperties' value='true' />
+          <Var name='RenameEvents' value='true' />
+          <Var name='RenameFields' value='true' />
+          <Var name='UseUnicodeNames' value='true' />
+          <Var name='SuppressIldasm' value='true' />
+        
+          $modules
+        </Obfuscator>
+        "@
 
         Set-Content obfuscar.xml $config
 
