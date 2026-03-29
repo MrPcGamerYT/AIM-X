@@ -1,203 +1,158 @@
 using System;
 using System.Diagnostics;
 using System.Drawing;
+using System.Runtime.InteropServices;
 using System.Windows.Forms;
 using System.Security.Principal;
+using System.Threading;
 using System.Linq;
 using Microsoft.Win32;
-using System.IO;
 
 namespace Aim_X
 {
     internal static class Program
     {
-        public static NotifyIcon trayIcon;
+        public static NotifyIcon trayIcon = new NotifyIcon();
 
         [STAThread]
         static void Main()
         {
-            MessageBox.Show("App starting..."); // 🔥 DEBUG (remove later)
+            try { AimXEngine.RevertAllSettings(); } catch { }
 
-            try { AimXEngine.RevertAllSettings(); }
-            catch (Exception ex) { LogError("RevertAllSettings failed", ex); }
-
-            // ✅ ADMIN CHECK
+            // Admin Check
             if (!IsRunningAsAdmin())
             {
-                try
-                {
-                    Process.Start(new ProcessStartInfo
-                    {
-                        UseShellExecute = true,
-                        FileName = Application.ExecutablePath,
-                        Verb = "runas"
-                    });
-                }
-                catch (Exception ex)
-                {
-                    MessageBox.Show("Admin required!\n" + ex.Message);
-                }
+                ProcessStartInfo proc = new ProcessStartInfo();
+                proc.UseShellExecute = true;
+                proc.WorkingDirectory = Environment.CurrentDirectory;
+                proc.FileName = Application.ExecutablePath;
+                proc.Verb = "runas";
+                try { Process.Start(proc); } catch { }
                 return;
             }
 
-            // ✅ SINGLE INSTANCE (SAFE)
-            try
+            // Prevent Multiple Instances
+            string currentName = Process.GetCurrentProcess().ProcessName;
+            Process[] duplicates = Process.GetProcessesByName(currentName);
+            if (duplicates.Length > 1)
             {
-                var current = Process.GetCurrentProcess();
-                var others = Process.GetProcessesByName(current.ProcessName);
-
-                foreach (var p in others)
+                foreach (var p in duplicates)
                 {
-                    if (p.Id != current.Id)
+                    if (p.Id != Process.GetCurrentProcess().Id)
                     {
-                        try { p.Kill(); } catch { }
+                        try { p.Kill(); p.WaitForExit(1000); } catch { }
                     }
                 }
             }
-            catch (Exception ex)
-            {
-                LogError("Instance check failed", ex);
-            }
 
-            // ✅ GLOBAL ERRORS
-            Application.ThreadException += (s, e) =>
-            {
-                LogError("ThreadException", e.Exception);
-                MessageBox.Show(e.Exception.ToString());
-            };
+            // Global handlers
+            Application.ThreadException += (s, e) => { AimXEngine.RevertAllSettings(); };
+            AppDomain.CurrentDomain.ProcessExit += (s, e) => { AimXEngine.RevertAllSettings(); };
 
-            AppDomain.CurrentDomain.UnhandledException += (s, e) =>
-            {
-                LogError("UnhandledException", (Exception)e.ExceptionObject);
+            SystemEvents.SessionEnding += (s, e) => {
+                AimXEngine.RevertAllSettings();
             };
 
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
 
-            // 🔐 LOGIN
-            try
-            {
-                Login login = new Login();
-                if (login.ShowDialog() != DialogResult.OK)
-                    return;
-            }
-            catch (Exception ex)
-            {
-                LogError("Login failed", ex);
-                MessageBox.Show(ex.ToString());
-                return;
-            }
-
-            // 🚀 SPLASH
-            try
-            {
-                using (SplashScreen splash = new SplashScreen())
-                    splash.ShowDialog();
-            }
-            catch (Exception ex)
-            {
-                LogError("Splash failed", ex);
-            }
-
-            // ✅ CREATE TRAY AFTER UI READY
             SetupTray();
 
-            // 🎯 MAIN LOOP
+            // 🔐 STEP 1: LOGIN
+            Login login = new Login();
+
+            if (login.ShowDialog() != DialogResult.OK)
+                return; // exit if failed
+
+            // 🚀 STEP 2: SPLASH (blocking)
+            using (SplashScreen splash = new SplashScreen())
+            {
+                splash.ShowDialog();
+            }
+
+            // 🎯 STEP 3: MAIN PANEL (main loop)
             Application.Run(new MainPanel());
         }
 
         private static bool IsRunningAsAdmin()
         {
-            return new WindowsPrincipal(WindowsIdentity.GetCurrent())
-                .IsInRole(WindowsBuiltInRole.Administrator);
+            WindowsIdentity identity = WindowsIdentity.GetCurrent();
+            WindowsPrincipal principal = new WindowsPrincipal(identity);
+            return principal.IsInRole(WindowsBuiltInRole.Administrator);
         }
 
         static void SetupTray()
         {
             try
             {
-                trayIcon = new NotifyIcon();
-
-                // ✅ SAFE ICON LOAD
-                try
-                {
-                    trayIcon.Icon = SystemIcons.Application; // fallback safe
-                }
-                catch { }
-
+                // Note: Ensure your icon is named 'icon' in Resources
+                trayIcon.Icon = Properties.Resources.icon;
                 trayIcon.Visible = true;
-                trayIcon.Text = "AIM X";
+                trayIcon.Text = "AIM X - SUBSCRIBER EDITION";
 
                 ContextMenuStrip menu = new ContextMenuStrip();
 
-                menu.Items.Add("Open", null, (s, e) => ShowMainPanel());
+                menu.Items.Add("Open Aim X", null, (s, e) => {
+                    ShowMainPanel();
+                });
 
-                menu.Items.Add("Optimize", null, (s, e) => TriggerMasterBoost());
+                // --- THE ULTIMATE MASTER OPTIMIZER BUTTON ---
+                var masterOptimizeBtn = new ToolStripMenuItem("Optimize Now (Ultimate Boost)");
+                masterOptimizeBtn.Font = new Font(masterOptimizeBtn.Font, FontStyle.Bold);
+                masterOptimizeBtn.Click += (s, e) => {
+                    TriggerMasterBoost();
+                };
+                menu.Items.Add(masterOptimizeBtn);
 
-                menu.Items.Add("Exit", null, (s, e) =>
-                {
-                    try { AimXEngine.RevertAllSettings(); } catch { }
+                menu.Items.Add("YouTube: MR.PC GAMER", null, (s, e) => {
+                    Process.Start(new ProcessStartInfo("https://youtube.com/@MR.PC_GAMER_YT") { UseShellExecute = true });
+                });
+
+                menu.Items.Add("-");
+
+                menu.Items.Add("Exit & Revert", null, (s, e) => {
+                    AimXEngine.RevertAllSettings();
                     trayIcon.Visible = false;
                     Application.Exit();
+                    Environment.Exit(0);
                 });
 
                 trayIcon.ContextMenuStrip = menu;
             }
-            catch (Exception ex)
-            {
-                LogError("Tray failed", ex);
-            }
+            catch { trayIcon.Icon = SystemIcons.Shield; }
         }
 
+        // Helper to find the MainPanel and run its logic safely
         private static void TriggerMasterBoost()
         {
-            try
+            MainPanel main = Application.OpenForms.OfType<MainPanel>().FirstOrDefault();
+            
+            if (main != null)
             {
-                var main = Application.OpenForms.OfType<MainPanel>().FirstOrDefault();
-
-                if (main != null)
-                    main.Invoke(new Action(() => main.RunUltimateBoost()));
-                else
-                {
-                    AimXEngine.OptimizeMouse();
-                    AimXEngine.ApplyEngineTweaks();
-                    AimXEngine.StabilizeFPS();
-                    AimXEngine.CleanSystem();
-                }
+                // UI Sync: invoke the boost logic on the MainPanel thread
+                main.Invoke(new Action(() => main.RunUltimateBoost()));
+                trayIcon.ShowBalloonTip(3000, "Aim X Engine", "Ultimate Boost Applied Successfully!", ToolTipIcon.Info);
             }
-            catch (Exception ex)
+            else
             {
-                LogError("Boost failed", ex);
+                // Background Mode: If UI isn't open, run engine-only optimization
+                AimXEngine.OptimizeMouse();
+                AimXEngine.ApplyEngineTweaks();
+                AimXEngine.StabilizeFPS();
+                AimXEngine.CleanSystem();
+                trayIcon.ShowBalloonTip(3000, "Aim X Engine", "System Optimized (Background Mode)", ToolTipIcon.Info);
             }
         }
 
         private static void ShowMainPanel()
         {
-            var main = Application.OpenForms.OfType<MainPanel>().FirstOrDefault();
-
+            MainPanel main = Application.OpenForms.OfType<MainPanel>().FirstOrDefault();
             if (main != null)
             {
                 main.Show();
                 main.WindowState = FormWindowState.Normal;
                 main.BringToFront();
             }
-        }
-
-        // ✅ SAFE LOG PATH
-        private static void LogError(string title, Exception ex)
-        {
-            try
-            {
-                string path = Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                    "AIM-X");
-
-                Directory.CreateDirectory(path);
-
-                File.AppendAllText(Path.Combine(path, "crash_log.txt"),
-                    $"[{DateTime.Now}] {title}\n{ex}\n\n");
-            }
-            catch { }
         }
     }
 }
