@@ -21,9 +21,7 @@ jobs:
         if (Test-Path update.json) {
           $json = Get-Content update.json | ConvertFrom-Json
           $v = $json.version
-        } else {
-          $v = "1.0.0.0"
-        }
+        } else { $v = "1.0.0.0" }
         echo "VERSION=$v" >> $env:GITHUB_ENV
         echo "TAG=v$v" >> $env:GITHUB_ENV
 
@@ -34,7 +32,6 @@ jobs:
       shell: pwsh
       run: |
         $proj = Get-ChildItem -Recurse -Filter *.csproj | Select -First 1
-        if (-not $proj) { Write-Error "No .csproj found!"; exit 1 }
         nuget restore $proj.FullName
         msbuild $proj.FullName /p:Configuration=Release
 
@@ -42,22 +39,31 @@ jobs:
       shell: pwsh
       run: |
         dotnet tool install --global Obfuscar.GlobalTool
+        
+        # 1. Find the EXE inside bin\Release
         $exeFile = Get-ChildItem -Recurse -Filter "*.exe" | Where-Object { $_.FullName -like "*bin\Release*" -and $_.Name -notlike "*vshost*" } | Select -First 1
-        if (-not $exeFile) { Write-Error "Could not find Release EXE"; exit 1 }
+        if (-not $exeFile) { Write-Error "❌ EXE not found in bin\Release"; exit 1 }
+        
         $exeDir = $exeFile.DirectoryName
         $exeName = $exeFile.Name
         
-        # Fixed XML Generation to avoid YAML syntax errors
-        $xmlConfig = "<?xml version='1.0'?><Obfuscator><Var name='InPath' value='$exeDir' /><Var name='OutPath' value='$exeDir\Obfuscated' /><Var name='KeepPublicApi' value='false' /><Var name='HidePrivateApi' value='true' /><Var name='RenameProperties' value='true' /><Var name='RenameEvents' value='true' /><Var name='RenameFields' value='true' /><Var name='UseUnicodeNames' value='true' /><Module file='$exeName' /></Obfuscator>"
-        $xmlConfig | Out-File -FilePath "obfuscar.xml" -Encoding utf8
+        # 2. Create the XML directly IN the EXE directory to avoid path errors
+        $xmlContent = "<?xml version='1.0'?><Obfuscator><Var name='InPath' value='.' /><Var name='OutPath' value='.\Obfuscated' /><Var name='KeepPublicApi' value='false' /><Var name='HidePrivateApi' value='true' /><Var name='RenameProperties' value='true' /><Var name='RenameEvents' value='true' /><Var name='RenameFields' value='true' /><Var name='UseUnicodeNames' value='true' /><Module file='$exeName' /></Obfuscator>"
+        $xmlPath = Join-Path $exeDir "obfuscar.xml"
+        $xmlContent | Out-File -FilePath $xmlPath -Encoding utf8
 
+        # 3. Change directory to the EXE folder and run Obfuscar
+        Push-Location $exeDir
         obfuscar.console obfuscar.xml
+        Pop-Location
+
+        # 4. Move the scrambled EXE back to the original Release folder
         $obfuscatedExe = Join-Path "$exeDir\Obfuscated" $exeName
         if (Test-Path $obfuscatedExe) {
             Move-Item -Path $obfuscatedExe -Destination $exeFile.FullName -Force
-            Write-Host "✅ Scrambled: $exeName"
+            Write-Host "✅ Success! EXE Scrambled."
         } else {
-            Write-Error "❌ Obfuscation failed"
+            Write-Error "❌ Obfuscation failed - Output not found"
             exit 1
         }
 
