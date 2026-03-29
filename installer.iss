@@ -1,11 +1,11 @@
-#define MyAppName "AIM X"
+﻿#define MyAppName "AIM X"
 #define MyAppVersion "1.2.9"
 #define MyAppExe "Aim X.exe"
 #define MyBuildDir GetEnv("BUILD_OUTPUT")
 
 [Setup]
 AppName={#MyAppName}
-AppVersion={#MyAppVersion}
+AppVersion=1.3.0
 DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 OutputDir=setup_output
@@ -16,14 +16,14 @@ AppPublisher=Mr.Pc Gamer
 AppPublisherURL=https://github.com/MrPcGamerYT/AIM-X
 VersionInfoCompany=Mr.Pc Gamer
 VersionInfoDescription=Optimizer System Setup
-VersionInfoVersion={#MyAppVersion}
-VersionInfoCopyright=© 2026 Mr.Pc Gamer
+VersionInfoVersion=1.3.0
+VersionInfoCopyright=Â© 2026 Mr.Pc Gamer
 
 PrivilegesRequired=admin
 SetupIconFile=app_icon.ico
 
 [Files]
-; 🔥 COPY EVERYTHING FROM BUILD OUTPUT
+; ðŸ”¥ COPY EVERYTHING FROM BUILD OUTPUT
 Source: "{#MyBuildDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
