@@ -138,6 +138,9 @@ jobs:
 
         Write-Host "🚀 FULL OBFUSCATION COMPLETE"
 
+        # ✅ PASS BUILD OUTPUT TO INSTALLER
+        Add-Content -Path $env:GITHUB_ENV -Value "BUILD_OUTPUT=$releasePath"
+
     # =========================
     # BUILD INSTALLER
     # =========================
