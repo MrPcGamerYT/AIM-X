@@ -19,10 +19,10 @@ jobs:
       shell: pwsh
       run: |
         if (Test-Path update.json) {
-          $json = Get-Content update.json | ConvertFrom-Json
-          $v = $json.version
+            $json = Get-Content update.json | ConvertFrom-Json
+            $v = $json.version
         } else {
-          $v = "1.0.0.0"
+            $v = "1.0.0.0"
         }
         Add-Content -Path $env:GITHUB_ENV -Value "VERSION=$v"
         Add-Content -Path $env:GITHUB_ENV -Value "TAG=v$v"
@@ -33,7 +33,7 @@ jobs:
     - name: Build Project
       shell: pwsh
       run: |
-        $proj = Get-ChildItem -Recurse -Filter *.csproj | Select -First 1
+        $proj = Get-ChildItem -Recurse -Filter *.csproj | Select-Object -First 1
         if (-not $proj) { Write-Error "No .csproj found!"; exit 1 }
         nuget restore $proj.FullName
         msbuild $proj.FullName /p:Configuration=Release
@@ -41,15 +41,23 @@ jobs:
     - name: Obfuscate EXE
       shell: pwsh
       run: |
+        # Install Obfuscar global tool
         dotnet tool install --global Obfuscar.GlobalTool
+
+        # Add .NET global tools path
         $env:PATH += ";$env:USERPROFILE\.dotnet\tools"
 
-        $exeFile = Get-ChildItem -Recurse -Filter "*.exe" | 
-                   Where-Object { $_.FullName -like "*bin\Release*" } | 
+        # Find the EXE
+        $exeFile = Get-ChildItem -Recurse -Filter "*.exe" |
+                   Where-Object { $_.FullName -like "*bin\Release*" } |
                    Select-Object -First 1
+
+        if (-not $exeFile) { Write-Error "❌ No EXE found in bin\Release"; exit 1 }
+
         $exeDir = $exeFile.DirectoryName
         $exeName = $exeFile.Name
 
+        # Create Obfuscar config
         $config = @'
         <?xml version="1.0"?>
         <Obfuscator>
@@ -66,8 +74,11 @@ jobs:
         '@ -f $exeDir, $exeName
 
         Set-Content -Path "obfuscar.xml" -Value $config
-        obfuscar obfuscar.xml
 
+        # Run Obfuscar
+        obfuscar.console obfuscar.xml
+
+        # Replace original EXE
         Move-Item -Path "$exeDir\Obfuscated\$exeName" -Destination "$exeDir\$exeName" -Force
         Write-Host "✅ EXE successfully protected and scrambled!"
 
