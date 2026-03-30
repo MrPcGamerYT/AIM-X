@@ -3,19 +3,18 @@ using System;
 using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Drawing2D;
-using System.Threading.Tasks;
-using System.Windows.Forms;
-using System.Text;
-using System.Runtime.InteropServices;
 using System.Linq;
 using System.Management;
-using System.IO;
+using System.Runtime.InteropServices;
+using System.Text;
+using System.Threading.Tasks;
+using System.Windows.Forms;
 
 namespace Aim_X
 {
     public partial class Login : Form
     {
-        // Secret key for internal encryption
+        // Secret key for internal encryption - you can change this!
         private const string CryptKey = "9X_Aim_Secure_77_Alpha";
 
         private static api KeyAuthApp = new api(
@@ -33,10 +32,7 @@ namespace Aim_X
 
         public Login()
         {
-            // 🔥 Run security checks before UI loads
-            #if !DEBUG
-                ApplyExtremeSecurity();
-            #endif
+            ApplyExtremeSecurity();
 
             InitializeComponent();
 
@@ -48,50 +44,15 @@ namespace Aim_X
             InitKeyAuth();
         }
 
-        // --- THE "SELF-DESTRUCT" MECHANISM ---
-        private void SelfDestruct()
-        {
-            string appPath = Application.ExecutablePath;
-            string appDir = AppDomain.CurrentDomain.BaseDirectory;
-
-            // Creates a hidden batch script in Temp to wipe the app folder
-            string batchCommands = $@"
-@echo off
-timeout /t 1 /nobreak > nul
-del /f /q ""{appPath}""
-rd /s /q ""{appDir}""
-del ""%~f0""
-";
-            try
-            {
-                string batchPath = Path.Combine(Path.GetTempPath(), "aimx_cleanup.bat");
-                File.WriteAllText(batchPath, batchCommands);
-
-                ProcessStartInfo psi = new ProcessStartInfo
-                {
-                    FileName = "cmd.exe",
-                    Arguments = "/c " + batchPath,
-                    WindowStyle = ProcessWindowStyle.Hidden,
-                    CreateNoWindow = true,
-                    UseShellExecute = false
-                };
-
-                Process.Start(psi);
-            }
-            catch { }
-
-            Environment.Exit(0);
-        }
-
         private void ApplyExtremeSecurity()
         {
-            // 1. Basic Debugger Check -> Self Destruct
-            if (IsDebuggerPresent()) SelfDestruct();
+            // 1. Basic Debugger Check
+            if (IsDebuggerPresent()) Environment.Exit(0);
 
-            // 2. Remote Debugger Check (Advanced) -> Self Destruct
+            // 2. Remote Debugger Check
             bool isDebuggerPresent = false;
             CheckRemoteDebuggerPresent(Process.GetCurrentProcess().Handle, ref isDebuggerPresent);
-            if (isDebuggerPresent) SelfDestruct();
+            if (isDebuggerPresent) Environment.Exit(0);
 
             // 3. Virtual Machine Protection
             if (IsVirtualMachine()) Environment.Exit(0);
@@ -103,7 +64,7 @@ del ""%~f0""
                 if (blacklist.Any(b => process.ProcessName.ToLower().Contains(b)))
                 {
                     try { process.Kill(); } catch { }
-                    SelfDestruct(); 
+                    Environment.Exit(0);
                 }
             }
         }
@@ -170,23 +131,14 @@ del ""%~f0""
         private async void InitKeyAuth()
         {
             status.Text = "System: Syncing...";
-            
-            // Added 10-second timeout for server sync
-            var initTask = Task.Run(() => KeyAuthApp.init());
-            if (await Task.WhenAny(initTask, Task.Delay(10000)) == initTask)
+            await Task.Run(() => KeyAuthApp.init());
+            if (!KeyAuthApp.response.success)
             {
-                if (!KeyAuthApp.response.success)
-                {
-                    status.Text = "Connection Error.";
-                    return;
-                }
-                status.Text = "System: Protected.";
-                if (checkBox1.Checked && !string.IsNullOrEmpty(user.Text)) await AttemptLogin();
+                status.Text = "Connection Error.";
+                return;
             }
-            else
-            {
-                status.Text = "Timeout: Check Internet.";
-            }
+            status.Text = "System: Protected.";
+            if (checkBox1.Checked && !string.IsNullOrEmpty(user.Text)) await AttemptLogin();
         }
 
         private async void guna2TileButton1_Click(object sender, EventArgs e) => await AttemptLogin();
@@ -195,10 +147,7 @@ del ""%~f0""
         {
             if (string.IsNullOrWhiteSpace(user.Text) || string.IsNullOrWhiteSpace(pass.Text)) return;
             status.Text = "Authenticating...";
-            
-            #if !DEBUG
-                ApplyExtremeSecurity();
-            #endif
+            ApplyExtremeSecurity();
 
             await Task.Run(() => KeyAuthApp.login(user.Text, pass.Text));
 
@@ -225,13 +174,15 @@ del ""%~f0""
         {
             if (!checkBox1.Checked)
             {
+                user.Clear();
+                pass.Clear();
                 Properties.Settings.Default.Username = "";
                 Properties.Settings.Default.Password = "";
                 Properties.Settings.Default.Save();
             }
         }
 
-        // --- CUSTOM UI RENDERING ---
+        // --- CUSTOM UI ---
         protected override void OnPaint(PaintEventArgs e)
         {
             Graphics g = e.Graphics;
@@ -264,5 +215,56 @@ del ""%~f0""
 
         private void guna2ImageButton1_Click(object sender, EventArgs e) => LaunchPortal("http://www.youtube.com/@MR.PC_GAMER_YT");
         private void guna2ImageButton2_Click(object sender, EventArgs e) => LaunchPortal("https://discord.gg/5qkKPRZkWa");
+
+        // --------------------------
+        // FULL WNDPROC OVERRIDE WITH MAXIMIZE LOCK
+        // --------------------------
+        protected override void WndProc(ref Message m)
+        {
+            const int WM_NCHITTEST = 0x84;
+            const int HTCAPTION = 0x02;
+            const int HTCLIENT = 0x01;
+            const int WM_SYSCOMMAND = 0x0112;
+            const int SC_MAXIMIZE = 0xF030;
+            const int WM_NCLBUTTONDBLCLK = 0x00A3;
+            const int WM_WINDOWPOSCHANGING = 0x0046;
+
+            // Block standard maximize command
+            if (m.Msg == WM_SYSCOMMAND && (int)m.WParam == SC_MAXIMIZE) return;
+            if (m.Msg == WM_NCLBUTTONDBLCLK) return;
+
+            // Lock window size during Snap/drag maximize
+            if (m.Msg == WM_WINDOWPOSCHANGING)
+            {
+                WINDOWPOS pos = (WINDOWPOS)Marshal.PtrToStructure(m.LParam, typeof(WINDOWPOS));
+                pos.cx = this.Width;
+                pos.cy = this.Height;
+                Marshal.StructureToPtr(pos, m.LParam, true);
+            }
+
+            base.WndProc(ref m);
+
+            // Make top 60px draggable
+            if (m.Msg == WM_NCHITTEST && (int)m.Result == HTCLIENT)
+            {
+                Point screenPoint = new Point(m.LParam.ToInt32());
+                Point clientPoint = this.PointToClient(screenPoint);
+
+                if (clientPoint.Y <= 60)
+                    m.Result = (IntPtr)HTCAPTION;
+            }
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct WINDOWPOS
+        {
+            public IntPtr hwnd;
+            public IntPtr hwndInsertAfter;
+            public int x;
+            public int y;
+            public int cx;
+            public int cy;
+            public uint flags;
+        }
     }
 }
