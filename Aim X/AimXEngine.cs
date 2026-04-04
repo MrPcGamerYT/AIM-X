@@ -76,7 +76,6 @@ namespace Aim_X
                 {
                     if (key != null)
                     {
-                        // TRUE 1:1 RAW INPUT (Total Zero Curve)
                         byte[] zeroCurve = new byte[40]; 
                         key.SetValue("SmoothMouseXCurve", zeroCurve, RegistryValueKind.Binary);
                         key.SetValue("SmoothMouseYCurve", zeroCurve, RegistryValueKind.Binary);
@@ -98,7 +97,6 @@ namespace Aim_X
                     
                     using (RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Control Panel\Desktop", true))
                     {
-                        // Disables visual overhead that causes cursor micro-stutter
                         key?.SetValue("UserPreferencesMask", new byte[] { 0x90, 0x12, 0x03, 0x80, 0x10, 0x00, 0x00, 0x00 }, RegistryValueKind.Binary);
                     }
                 }
@@ -106,7 +104,7 @@ namespace Aim_X
             catch { }
         }
 
-        // --- 3. STABILIZE FPS & NETWORK (MERGED) ---
+        // --- 3. STABILIZE FPS & NETWORK ---
         public static void StabilizeFPS()
         {
             try
@@ -118,15 +116,17 @@ namespace Aim_X
 
                 if (IsAdmin())
                 {
-                    // Network Latency Fix (No-Delay Packets)
                     using (RegistryKey interfaces = Registry.LocalMachine.OpenSubKey(@"SYSTEM\CurrentControlSet\Services\Tcpip\Parameters\Interfaces", true))
                     {
-                        foreach (string id in interfaces.GetSubKeyNames())
+                        if (interfaces != null)
                         {
-                            using (RegistryKey card = interfaces.OpenSubKey(id, true))
+                            foreach (string id in interfaces.GetSubKeyNames())
                             {
-                                card?.SetValue("TcpAckFrequency", 1, RegistryValueKind.DWord);
-                                card?.SetValue("TCPNoDelay", 1, RegistryValueKind.DWord);
+                                using (RegistryKey card = interfaces.OpenSubKey(id, true))
+                                {
+                                    card?.SetValue("TcpAckFrequency", 1, RegistryValueKind.DWord);
+                                    card?.SetValue("TCPNoDelay", 1, RegistryValueKind.DWord);
+                                }
                             }
                         }
                     }
@@ -151,7 +151,6 @@ namespace Aim_X
                             if (coreCount >= 6)
                             {
                                 long affinityMask = 0;
-                                // Start from Core 1 to leave Core 0 for System Interrupts (Mouse/Network)
                                 for (int i = 1; i < coreCount; i++) affinityMask |= (1L << i);
                                 p.ProcessorAffinity = (IntPtr)affinityMask;
                             }
@@ -163,7 +162,7 @@ namespace Aim_X
             catch { }
         }
 
-        // --- 4. ENGINE TWEAKS (STEROID MODE) ---
+        // --- 4. ENGINE TWEAKS ---
         public static void ApplyEngineTweaks()
         {
             try
@@ -176,7 +175,6 @@ namespace Aim_X
                     using (RegistryKey key = Registry.LocalMachine.CreateSubKey(@"SYSTEM\CurrentControlSet\Control\GraphicsDrivers"))
                         key?.SetValue("HwSchMode", 2, RegistryValueKind.DWord);
 
-                    // Image File Execution Options for Emulators (Forces High Performance)
                     string[] emuExes = { "HD-Player.exe", "LdVBoxHeadless.exe", "dnplayer.exe" };
                     foreach (var exe in emuExes)
                     {
@@ -199,12 +197,11 @@ namespace Aim_X
             catch { }
         }
 
-        // --- 5. CLEANER (DEEP PURGE) ---
+        // --- 5. CLEANER ---
         public static void CleanSystem()
         {
             try
             {
-                // Standby List & Memory Purge (Clears stuttering cache)
                 IntPtr cacheSize = new IntPtr(-1);
                 NtSetSystemInformation(0x0015, cacheSize, Marshal.SizeOf(cacheSize));
 
@@ -270,8 +267,12 @@ namespace Aim_X
             File.WriteAllLines(path, lines);
         }
 
+        // --- MASTER FUNCTION (WITH AUTO-CLEANUP ON CLOSE) ---
         public static void RunAllOptimizations()
         {
+            // Subscribe to Process Exit event automatically
+            AppDomain.CurrentDomain.ProcessExit += (s, e) => RevertAllSettings();
+            
             OptimizeMouse();
             StabilizeFPS();
             ApplyEngineTweaks();
@@ -306,12 +307,21 @@ namespace Aim_X
                 }
 
                 SystemParametersInfo(SPI_SETMOUSE, 0, IntPtr.Zero, SPIF_UPDATEINIFILE | SPIF_SENDCHANGE);
-                File.Delete(backupFile);
+
                 if (IsAdmin())
                 {
                     RunHiddenCommand("sc", "start WSearch");
                     RunHiddenCommand("sc", "start SysMain");
+                    
+                    // Remove High Performance overrides for Emulators
+                    string[] emuExes = { "HD-Player.exe", "LdVBoxHeadless.exe", "dnplayer.exe" };
+                    foreach (var exe in emuExes)
+                    {
+                        Registry.LocalMachine.DeleteSubKeyTree($@"SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\{exe}\PerfOptions", false);
+                    }
                 }
+
+                File.Delete(backupFile);
             }
             catch { }
         }
