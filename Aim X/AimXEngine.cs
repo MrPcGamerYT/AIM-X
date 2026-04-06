@@ -76,7 +76,7 @@ namespace Aim_X
                 {
                     if (key != null)
                     {
-                        byte[] zeroCurve = new byte[40]; 
+                        byte[] zeroCurve = new byte[40];
                         key.SetValue("SmoothMouseXCurve", zeroCurve, RegistryValueKind.Binary);
                         key.SetValue("SmoothMouseYCurve", zeroCurve, RegistryValueKind.Binary);
                         key.SetValue("MouseSpeed", "0", RegistryValueKind.String);
@@ -94,7 +94,7 @@ namespace Aim_X
                         key?.SetValue("MouseDataQueueSize", 16, RegistryValueKind.DWord);
                         key?.SetValue("ThreadPriority", 31, RegistryValueKind.DWord);
                     }
-                    
+
                     using (RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Control Panel\Desktop", true))
                     {
                         key?.SetValue("UserPreferencesMask", new byte[] { 0x90, 0x12, 0x03, 0x80, 0x10, 0x00, 0x00, 0x00 }, RegistryValueKind.Binary);
@@ -272,7 +272,7 @@ namespace Aim_X
         {
             // Subscribe to Process Exit event automatically
             AppDomain.CurrentDomain.ProcessExit += (s, e) => RevertAllSettings();
-            
+
             OptimizeMouse();
             StabilizeFPS();
             ApplyEngineTweaks();
@@ -312,7 +312,7 @@ namespace Aim_X
                 {
                     RunHiddenCommand("sc", "start WSearch");
                     RunHiddenCommand("sc", "start SysMain");
-                    
+
                     // Remove High Performance overrides for Emulators
                     string[] emuExes = { "HD-Player.exe", "LdVBoxHeadless.exe", "dnplayer.exe" };
                     foreach (var exe in emuExes)

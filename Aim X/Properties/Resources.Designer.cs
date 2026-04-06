@@ -61,6 +61,16 @@ namespace Aim_X.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized resource of type System.Byte[].
+        /// </summary>
+        internal static byte[] corpta {
+            get {
+                object obj = ResourceManager.GetObject("corpta", resourceCulture);
+                return ((byte[])(obj));
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
         internal static System.Drawing.Bitmap Discord {
@@ -87,6 +97,16 @@ namespace Aim_X.Properties {
             get {
                 object obj = ResourceManager.GetObject("login", resourceCulture);
                 return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Byte[].
+        /// </summary>
+        internal static byte[] Orbitron_Black {
+            get {
+                object obj = ResourceManager.GetObject("Orbitron-Black", resourceCulture);
+                return ((byte[])(obj));
             }
         }
         
